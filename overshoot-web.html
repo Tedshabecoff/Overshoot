@@ -1,0 +1,1875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OVERSHOOT — a climate strategy game</title>
+<style>
+  :root{
+    --bg:#0b1018; --panel:#10161fdd; --panel-line:#1d2733;
+    --ink:#e8edf3; --muted:#8595a6; --dim:#5a6878;
+    --brand:#e88c4d; --good:#3fd2a4; --bad:#ff5d5d; --warn:#ffd166;
+    --money:#67d19e; --pol:#d1a84f; --sky-link:#6fb7e8;
+  }
+  *{box-sizing:border-box; margin:0; padding:0}
+  html,body{height:100%; overflow:hidden; background:var(--bg);
+    font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); -webkit-font-smoothing:antialiased}
+  canvas#world{position:fixed; inset:0; display:block; cursor:crosshair}
+
+  /* cinematic finish */
+  #vignette{position:fixed; inset:0; pointer-events:none; z-index:5;
+    background:radial-gradient(ellipse at 42% 42%, transparent 55%, rgba(0,0,0,.42) 100%);}
+  #heatpulse{position:fixed; inset:0; pointer-events:none; z-index:5; opacity:0;
+    background:radial-gradient(ellipse at 50% 100%, rgba(255,70,30,.18), transparent 60%);
+    transition:opacity 2s}
+
+  /* ---------- top-left: clock + tools ---------- */
+  #hud{position:fixed; top:10px; left:10px; z-index:10; display:flex; flex-direction:column; gap:6px; max-width:440px}
+  .glass{background:var(--panel); border:1px solid var(--panel-line); border-radius:12px;
+    backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); padding:10px 12px;
+    box-shadow:0 8px 30px rgba(0,0,0,.45)}
+  .rowflex{display:flex; gap:6px; align-items:center; flex-wrap:wrap}
+  button{background:#1a2330; color:var(--ink); border:1px solid #2a3848; border-radius:8px;
+    padding:7px 11px; font:inherit; font-size:13px; cursor:pointer; transition:all .15s}
+  button:hover:not(:disabled){background:#243246; border-color:#3a4d63}
+  button:disabled{opacity:.38; cursor:default}
+  button.on{background:#2c4a66; border-color:#4d7396; color:#dceaf8}
+  button.primary{background:linear-gradient(180deg,#b3622e,#8f4a1e); border-color:#c97a40; font-weight:600}
+  button.primary:hover{background:linear-gradient(180deg,#c46f37,#9c5223)}
+  #progressWrap{flex:1; min-width:80px; height:8px; background:#0d141d; border-radius:4px; overflow:hidden; border:1px solid #1d2733}
+  #progressBar{height:100%; width:0%; background:linear-gradient(90deg,#3b6c8f,#67b3d6); transition:width .12s linear}
+  #hint{font-size:11px; color:var(--dim)}
+  .badge{display:inline-block; min-width:8px; height:8px; border-radius:50%; background:var(--brand);
+    margin-left:6px; vertical-align:middle; animation:pulse 1.6s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+  /* ---------- right: dashboard ---------- */
+  #dash{position:fixed; top:0; right:0; bottom:0; width:390px; z-index:10;
+    background:linear-gradient(180deg,#0d131bf2,#0b1018f5);
+    border-left:1px solid var(--panel-line); backdrop-filter:blur(16px);
+    overflow-y:auto; padding:12px 14px 20px}
+  #dash::-webkit-scrollbar{width:6px}
+  #dash::-webkit-scrollbar-thumb{background:#223040; border-radius:4px}
+  #dash h1{font-size:22px; letter-spacing:3px; color:var(--brand); font-weight:800}
+  #yearLabel{color:var(--muted); font-size:12px; margin:1px 0 10px}
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:10px}
+  .stat .cap{font-size:8.5px; letter-spacing:1px; color:var(--dim); text-transform:uppercase}
+  .stat .val{font-size:18px; font-weight:700; font-variant-numeric:tabular-nums}
+  .card{border:1px solid var(--panel-line); border-radius:8px; padding:8px 10px; margin-bottom:8px; background:#0d141dcc}
+  .card h2{font-size:9.5px; letter-spacing:1.6px; color:#52606f; font-weight:700; margin-bottom:6px; text-transform:uppercase}
+  .krow{display:flex; justify-content:space-between; font-size:12px; padding:1px 0; color:#c6d0da}
+  .krow b{font-variant-numeric:tabular-nums; color:var(--ink); font-weight:600}
+  #bandCanvas{width:100%; height:110px; display:block}
+  .bloc{display:flex; align-items:center; gap:6px; padding:2px 0}
+  .bloc .nm{width:100px; font-size:11.5px; color:#c6d0da}
+  .bloc .bar{flex:1; height:8px; background:#0a0f16; border-radius:4px; overflow:hidden}
+  .bloc .bar i{display:block; height:100%; border-radius:4px; transition:width .5s, background .5s}
+  .bloc .wd{width:68px; text-align:right; font-size:10.5px}
+  .coal-note{font-size:10px; color:var(--dim); margin-top:4px}
+  .act{display:flex; width:100%; justify-content:space-between; align-items:center; text-align:left; margin-bottom:4px; padding:7px 9px}
+  .act .cost{font-size:11px; color:var(--muted); white-space:nowrap; margin-left:6px}
+  #advanceBtn{width:100%; padding:10px; font-size:13px; letter-spacing:1px; margin:4px 0 8px}
+  #log{height:110px; overflow-y:auto; font-size:11.5px; line-height:1.45; color:var(--muted)}
+  #log::-webkit-scrollbar{width:5px}
+  #log::-webkit-scrollbar-thumb{background:#223040}
+  #log .hi{color:#e6edf3} #log .good{color:var(--good)} #log .bad{color:var(--bad)} #log .warn{color:var(--warn)}
+
+  /* ---------- bottom: exchange dock ---------- */
+  #exch{position:fixed; left:14px; bottom:10px; right:410px; z-index:10; display:flex; gap:10px; align-items:center}
+  .meter{min-width:110px}
+  .meter .cap{font-size:9.5px; letter-spacing:1.2px}
+  .meter .val{font-size:21px; font-weight:700; font-variant-numeric:tabular-nums}
+  .meter .bar{height:7px; background:#0a0f16; border-radius:4px; overflow:hidden; margin-top:3px}
+  .meter .bar i{display:block; height:100%; transition:width .4s}
+  #exchMid{flex:1; display:flex; flex-direction:column; gap:4px; position:relative}
+  .xbtn{font-size:12.5px; padding:7px 11px; background:#141d28; border:1px solid #28384a;
+    border-radius:8px; color:#d3dee9; font-weight:600; text-align:center}
+  .xbtn:hover:not(:disabled){background:#1d2c3d; border-color:#3a5168}
+  .xbtn b{color:#fff}
+  #channel{height:14px; position:relative}
+  .packet{position:absolute; top:2px; width:11px; height:11px; border-radius:3px; transition:left .6s cubic-bezier(.3,.7,.4,1)}
+
+  /* ---------- feedback: toasts, pulses, selection ---------- */
+  .toast{position:fixed; z-index:30; transform:translate(-50%,-100%); pointer-events:none;
+    background:#10161fee; border:1px solid #3a4d63; border-radius:8px; padding:5px 10px;
+    font-size:12px; color:var(--warn); white-space:nowrap; animation:toastUp 1.5s forwards}
+  .toast.ok{color:var(--good)}
+  @keyframes toastUp{0%{opacity:0; margin-top:6px}12%{opacity:1; margin-top:0}
+    75%{opacity:1}100%{opacity:0; margin-top:-14px}}
+  #tools .tool.on{background:#5e3517; border-color:var(--brand);
+    box-shadow:0 0 0 1px var(--brand), 0 0 14px rgba(232,140,77,.35); color:#ffe2c8}
+  .toolsLabel{font-size:9.5px; letter-spacing:1.4px; color:#52606f; font-weight:700;
+    text-transform:uppercase; margin-bottom:7px}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; font-size:10.5px; color:var(--dim); margin-top:7px}
+  .legend .sw{display:inline-block; width:16px; height:3px; margin-right:5px; vertical-align:middle; border-radius:2px}
+  .legend .sw.hist{background:#ecf1f5}
+  .legend .sw.band{background:rgba(255,115,77,.4); height:9px}
+  .legend .sw.limit{background:repeating-linear-gradient(90deg,#ff5d5d 0 4px,transparent 4px 7px)}
+  #xPenalty{text-align:center; font-size:11px; color:var(--muted); letter-spacing:.4px}
+  #xPenalty b{font-variant-numeric:tabular-nums}
+  /* tipping points */
+  #tipBanner{position:fixed; top:15%; left:50%; transform:translate(-50%,-14px); z-index:35;
+    background:linear-gradient(180deg,#3c0e0eee,#240707f2); border:1px solid #a33;
+    border-radius:12px; padding:15px 28px; text-align:center; opacity:0; pointer-events:none;
+    transition:opacity .6s, transform .6s; max-width:580px; box-shadow:0 10px 50px rgba(180,30,20,.35)}
+  #tipBanner.show{opacity:1; transform:translate(-50%,0)}
+  #tipBanner .tb-title{font-size:17px; letter-spacing:2.5px; color:#ff8d7a; font-weight:800}
+  #tipBanner .tb-sub{font-size:12.5px; color:#e8c7bd; margin-top:5px}
+  .tiprow{display:flex; align-items:center; gap:8px; padding:3px 0}
+  .tiprow .nm{width:126px; font-size:12px; color:#c6d0da}
+  .tiprow .bar{flex:1; height:9px; border-radius:5px; position:relative; background:#0a0f16}
+  .tiprow .bar i{position:absolute; top:-2px; bottom:-2px; width:2.5px; background:#ecf1f5; border-radius:1px}
+  .tiprow .wd{width:96px; text-align:right; font-size:10.5px; letter-spacing:.5px}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.4}}
+  .tiprow .wd.destab{color:var(--warn); animation:blink 1.6s infinite}
+  .tiprow .wd.crossed{color:var(--bad); font-weight:700}
+  .bump{animation:bump .5s}
+  @keyframes bump{0%{transform:scale(1)}35%{transform:scale(1.3)}100%{transform:scale(1)}}
+  .packet{box-shadow:0 0 10px 2px currentColor}
+
+  /* ---------- overlays ---------- */
+  .overlay{position:fixed; inset:0; z-index:40; background:#04070bf2; display:flex;
+    align-items:center; justify-content:center; backdrop-filter:blur(8px)}
+  .overlay.hidden{display:none}
+  .sheet{max-width:640px; padding:40px; text-align:center}
+  .sheet h1{font-size:44px; letter-spacing:6px; color:var(--brand); margin-bottom:6px}
+  .sheet .sub{font-size:11px; letter-spacing:2.5px; color:var(--dim); margin-bottom:22px}
+  .sheet p{color:#c4cdd7; text-align:left; margin-bottom:14px; font-size:15px}
+  .sheet .final{color:var(--ink); font-weight:600}
+  #endStats{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:18px 0; text-align:center}
+  #endStats .cap{font-size:9.5px; color:var(--dim); letter-spacing:1px}
+  #endStats .val{font-size:22px; font-weight:700}
+
+  /* codex */
+  #codex .frame{width:min(920px,92vw); height:min(620px,86vh); display:flex; flex-direction:column; text-align:left; padding:28px 32px}
+  #codex h1{font-size:22px; letter-spacing:3px; color:var(--brand)}
+  #codex .sub2{color:var(--dim); font-size:12px; margin:4px 0 16px}
+  #codexBody{flex:1; display:flex; gap:22px; min-height:0}
+  #codexList{width:250px; overflow-y:auto; border-right:1px solid var(--panel-line); padding-right:14px}
+  #codexList .item{padding:9px 10px; border-radius:8px; cursor:pointer; font-size:13.5px; color:#c6d0da; margin-bottom:2px}
+  #codexList .item:hover{background:#16202c}
+  #codexList .item.sel{background:#1d2c3d; color:#fff}
+  #codexList .item.locked{color:#3d4854; cursor:default; font-size:12px}
+  #codexText{flex:1; overflow-y:auto; padding-right:8px}
+  #codexText h2{font-size:19px; margin-bottom:14px; color:var(--ink); letter-spacing:0}
+  #codexText .tag{font-size:10.5px; letter-spacing:1.6px; font-weight:700; margin:14px 0 5px}
+  #codexText .tag.g{color:var(--good)} #codexText .tag.w{color:var(--sky-link)}
+  #codexText p{color:#bcc7d2; font-size:14px}
+  .closeRow{display:flex; justify-content:flex-end; margin-top:14px}
+
+  /* end screen stat cells */
+  #endStats .cap{font-size:9px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+  #endStats .val{font-size:20px;font-weight:700;margin-top:2px}
+  #endStats>div{background:#0d141d;border:1px solid var(--panel-line);border-radius:8px;padding:8px 4px}
+
+  /* result badge */
+  #resultBadge{border-radius:14px;padding:18px 20px;margin-bottom:12px;
+    background:linear-gradient(135deg,#16242f,#0a121b);border:1px solid #25394c;
+    box-shadow:0 10px 40px rgba(0,0,0,.5)}
+  #resultBadge .rbTop{display:flex;justify-content:space-between;align-items:flex-start}
+  #resultBadge .rbBrand{font-size:12px;letter-spacing:4px;color:var(--brand);font-weight:800}
+  #resultBadge .rbOutcome{font-size:22px;font-weight:800;letter-spacing:.5px;margin-top:3px}
+  #resultBadge .rbGradeCap{font-size:8px;letter-spacing:1px;color:var(--dim);text-align:right}
+  #resultBadge .rbGrade{font-size:46px;font-weight:800;line-height:.9}
+  #resultBadge .rbStats{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:14px 0 12px}
+  #resultBadge .rbStats .c{background:#0a131c;border:1px solid #1d2c3a;border-radius:8px;padding:7px 3px;text-align:center}
+  #resultBadge .rbStats .cap{font-size:7.5px;letter-spacing:.4px;color:var(--dim);text-transform:uppercase}
+  #resultBadge .rbStats .v{font-size:16px;font-weight:700;margin-top:3px}
+  #resultBadge .rbLine{font-size:13.5px;color:#d6e0ea;line-height:1.5}
+  #resultBadge .rbFoot{font-size:11px;color:var(--brand);margin-top:9px;letter-spacing:.5px;font-weight:600}
+
+  /* share row */
+  #shareRow{display:flex;gap:8px;align-items:center;margin-top:10px}
+  #shareText{flex:1;background:#0a0f16;border:1px solid var(--panel-line);border-radius:6px;
+    padding:6px 10px;font-size:12px;color:var(--muted);font-family:inherit;resize:none;height:44px}
+  #copyBtn{white-space:nowrap;padding:6px 14px;font-size:12px}
+  #copyOk{font-size:11px;color:var(--good);opacity:0;transition:opacity .4s}
+
+  /* landing page */
+  #landing{background:#04070bf8}
+  #landing .lsheet{text-align:center;max-width:520px}
+  #landing h1{font-size:54px;letter-spacing:8px;color:var(--brand);font-weight:800;margin-bottom:8px}
+  #landing .tagline{font-size:16px;color:#8da8be;margin-bottom:34px;line-height:1.5}
+  #landing .lbtns{display:flex;gap:14px;justify-content:center;margin-bottom:16px}
+  #landing .lbtns button{padding:13px 38px;font-size:15px;min-width:130px}
+  #landing .lver{font-size:11px;color:var(--dim);margin-top:10px}
+
+  /* about modal */
+  #about{background:#04070bf5}
+  #about .asheet{max-width:560px;text-align:left;padding:40px 48px}
+  #about h2{font-size:22px;letter-spacing:2px;color:var(--brand);margin-bottom:16px}
+  #about p{color:#b8c8d8;font-size:14.5px;line-height:1.7;margin-bottom:12px}
+  #about .aclose{margin-top:20px}
+
+  /* mute button */
+  #muteBtn{font-size:17px;padding:5px 9px;line-height:1;background:transparent;border-color:transparent;color:#6a7e8f}
+  #muteBtn:hover{background:#1a2330;border-color:#2a3848;color:var(--ink)}
+
+  /* responsive: compact on small screens */
+  @media(max-height:800px){
+    #dash{padding:8px 12px 14px}
+    .card{padding:6px 8px;margin-bottom:6px}
+    #bandCanvas{height:90px}
+    #log{height:80px}
+    .act{padding:5px 8px;margin-bottom:3px}
+    #exch{bottom:8px}
+    .meter .val{font-size:18px}
+    .xbtn{padding:5px 9px; font-size:12px}
+  }
+  @media(max-width:1200px){
+    #dash{width:360px}
+    #exch{right:376px}
+  }
+
+  /* debrief bullets */
+  .debrief-row{display:flex;gap:10px;align-items:flex-start}
+  .debrief-icon{font-size:16px;line-height:1.4;flex-shrink:0}
+
+  /* advisor */
+  #advisor.hidden{display:none}
+  #advisor{animation:fadeUp .4s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+  /* recommended action highlight */
+  .act.recommend{border-color:#4d7396;box-shadow:0 0 0 1px #4d7396,0 0 12px rgba(77,115,150,.25)}
+</style>
+</head>
+<body>
+<canvas id="world"></canvas>
+<div id="vignette"></div>
+<div id="heatpulse"></div>
+
+<!-- landing page -->
+<div class="overlay" id="landing">
+  <div class="lsheet">
+    <h1>OVERSHOOT</h1>
+    <div class="tagline">A climate strategy game about growth,<br>fossil lock-in, and the cost of waiting.</div>
+    <div class="lbtns">
+      <button class="primary" id="landPlay" style="font-size:16px;padding:14px 44px">Play</button>
+      <button id="landAbout" style="font-size:15px;padding:13px 32px">About</button>
+    </div>
+    <div class="lver">Playable prototype · 2025</div>
+  </div>
+</div>
+
+<!-- about modal -->
+<div class="overlay hidden" id="about">
+  <div class="glass asheet">
+    <h2>About Overshoot</h2>
+    <p>Overshoot is a strategy game about running a fossil-dependent economy and trying to grow it without overheating the planet. You build power, hold a coalition together, and race your own lock-in.</p>
+    <p>It exists to make one idea you can <em>feel</em>: cheap now is expensive later. The plant you build cheaply today is the one you can't afford to shut down tomorrow.</p>
+    <p>Built by <strong style="color:var(--ink)">Ted Shabecoff</strong>.</p>
+    <p style="color:var(--dim);font-size:13px">Playable prototype · Single file · Runs in any browser</p>
+    <div class="aclose"><button id="aboutClose">← Back</button></div>
+  </div>
+</div>
+
+<!-- top-left HUD -->
+<div id="hud">
+  <div class="glass rowflex">
+    <button id="playBtn" style="min-width:78px">⏸ Pause</button>
+    <button class="spd on" data-s="1">1x</button>
+    <button class="spd" data-s="2">2x</button>
+    <button class="spd" data-s="4">4x</button>
+    <button id="autoBtn" title="Pause at each decade beat so you can plan in peace">Auto-pause: off</button>
+    <div id="progressWrap"><div id="progressBar"></div></div>
+    <button id="muteBtn" title="Mute / unmute sound">🔊</button>
+    <button id="codexBtn" title="What the rules stand for. Unlocks as you play. Pauses time.">📖 Codex</button>
+  </div>
+  <div class="glass" id="tools">
+    <div class="toolsLabel">Map tools — click the land to build</div>
+    <div class="rowflex">
+      <button class="tool on" data-m="zoneE" title="Mark land for power plants">Zone Energy</button>
+      <button class="tool" data-m="zoneC" title="Raise a city block — cities are why demand grows">Zone City</button>
+      <button class="tool" data-m="fossil" title="Cheap, popular, emitting — and it digs in with age">Place Fossil</button>
+      <button class="tool" data-m="clean" title="Zero-emission; dispatches first; R&D makes it cheap">Place Clean</button>
+      <button class="tool" data-m="forest" title="Cheap mitigation: absorbs emissions every decade. Needs open land — and won't outrun fossil alone.">Build Forest</button>
+    </div>
+  </div>
+  <div class="glass" id="hint">Pick a tool, click the land to build. Grow GDP to 300, hold warming under +2.0°, don't run out of support. Drag pans · wheel zooms.</div>
+</div>
+
+<!-- right dashboard -->
+<div id="dash">
+  <h1>OVERSHOOT</h1>
+  <div id="yearLabel">Year 2025</div>
+  <div class="stats">
+    <div class="stat"><div class="cap">GDP</div><div class="val" id="sGdp">—</div></div>
+    <div class="stat"><div class="cap">Global temp</div><div class="val" id="sTemp">—</div></div>
+    <div class="stat"><div class="cap">Political capital</div><div class="val" id="sPol" style="color:var(--pol)">—</div></div>
+    <div class="stat"><div class="cap">Capital / decade</div><div class="val" id="sBudget" style="color:var(--money)">—</div></div>
+  </div>
+
+  <div class="card" title="White: warming so far. Shaded band: where today's plan lands — its width is the hidden tipping point's uncertainty. Red line: +2.0°.">
+    <h2>Outlook — if nothing changes</h2>
+    <canvas id="bandCanvas"></canvas>
+    <div class="legend">
+      <span><i class="sw hist"></i>history</span>
+      <span><i class="sw band"></i>locked-in risk if policy stops</span>
+      <span><i class="sw limit"></i>+2.0° limit</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Planetary tipping points</h2>
+    <div id="tipRows"></div>
+    <div class="coal-note">The shaded zone is the published risk range. The real threshold hides inside it — you learn where it was by crossing it. Crossing is permanent.</div>
+  </div>
+
+  <div class="card">
+    <h2>Energy &amp; emissions</h2>
+    <div class="krow"><span>Fossil capacity</span><b id="kF">—</b></div>
+    <div class="krow"><span>Clean capacity</span><b id="kC">—</b></div>
+    <div class="krow"><span>Energy demand</span><b id="kD">—</b></div>
+    <div class="krow"><span>Net emissions / decade</span><b id="kE">—</b></div>
+    <div class="krow"><span>Forests</span><b id="kForest">—</b></div>
+    <div class="krow"><span>Clean tech level</span><b id="kR">—</b></div>
+    <div class="krow"><span>Oldest fossil plant</span><b id="kO">—</b></div>
+  </div>
+
+  <div class="card">
+    <h2>The coalition</h2>
+    <div id="blocs"></div>
+    <div class="coal-note">Political capital is the sum of these moods — one number, four reasons.</div>
+  </div>
+
+  <div class="card">
+    <h2>Policy decisions</h2>
+    <div class="coal-note" style="margin:0 0 7px">Build plants and forests on the map. These are the policy levers.</div>
+    <button class="act" id="aRetire"><span>Retire oldest fossil</span><span class="cost"></span></button>
+    <button class="act" id="aRnd"><span>Fund clean R&amp;D</span><span class="cost"></span></button>
+    <button class="act" id="aJt"><span>Just-transition fund</span><span class="cost"></span></button>
+    <button class="act" id="aTax"><span>Push carbon tax</span><span class="cost"></span></button>
+  </div>
+
+  <button id="advanceBtn" class="primary">SKIP AHEAD ▸</button>
+  <div class="card"><h2>The record</h2><div id="log"></div></div>
+</div>
+
+<!-- bottom exchange dock -->
+<div id="exch" class="glass">
+  <div class="meter"><div class="cap" style="color:var(--money)">MONEY</div>
+    <div class="val" id="xMoney">—</div>
+    <div class="bar"><i id="xMoneyBar" style="background:var(--money)"></i></div></div>
+  <div id="exchMid">
+    <div id="xPenalty" title="Conversions between money and support worsen as your oldest plant ages. Waiting makes politics more expensive.">Lock-in penalty <b>×1.00</b></div>
+    <button class="xbtn" id="xJt">▸ Just-transition: — money → +— support</button>
+    <div id="channel"></div>
+    <button class="xbtn" id="xTax">▸ Carbon tax: — support → +— money</button>
+  </div>
+  <div class="meter" style="text-align:right"><div class="cap" style="color:var(--pol)">SUPPORT</div>
+    <div class="val" id="xPol">—</div>
+    <div class="bar"><i id="xPolBar" style="background:var(--pol)"></i></div></div>
+</div>
+
+<!-- tipping point banner -->
+<div id="tipBanner"><div class="tb-title"></div><div class="tb-sub"></div></div>
+
+<!-- intro (shown after Play is clicked) -->
+<div class="overlay hidden" id="intro">
+  <div class="sheet glass" style="max-width:680px">
+    <h1>OVERSHOOT</h1>
+    <div class="sub">INHERITED COAL ECONOMY — JANUARY 2025</div>
+
+    <p>You've just taken office. Five fossil plants power the economy. They're cheap, they're popular, and they belong to the people who built their lives around them.</p>
+
+    <p>You have three tools for the transition:</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin:6px 0 14px;text-align:center">
+      <div style="background:#1a2330;border:1px solid #2a3848;border-radius:8px;padding:10px 8px">
+        <div style="color:var(--warn);font-weight:700;font-size:13px;margin-bottom:4px">🏭 FOSSIL</div>
+        <div style="color:#c6d0da;font-size:12px">Cheap (11). Grows the economy. Jobs boost support. But every decade it runs, retirement gets harder and costlier.</div>
+      </div>
+      <div style="background:#1a2330;border:1px solid #2a3848;border-radius:8px;padding:10px 8px">
+        <div style="color:#6fb7e8;font-weight:700;font-size:13px;margin-bottom:4px">⚡ CLEAN</div>
+        <div style="color:#c6d0da;font-size:12px">Better long-term, but starts at 28. Fund R&D to cut the price. Dispatches first — cuts emissions before you retire anything.</div>
+      </div>
+      <div style="background:#1a2330;border:1px solid #2a3848;border-radius:8px;padding:10px 8px">
+        <div style="color:var(--good);font-weight:700;font-size:13px;margin-bottom:4px">🌲 FOREST</div>
+        <div style="color:#c6d0da;font-size:12px">Cheap mitigation (8). Absorbs 4 emissions per decade. But forests take land you can't use for anything else.</div>
+      </div>
+    </div>
+
+    <p>Mandate: triple GDP, stay under +2.0° warming, keep political support. You have 15 decades. The planet has tipping points — you'll find out where they are by crossing them.</p>
+    <p class="final" style="text-align:center;font-size:16px;margin-top:4px">Cheap now is expensive later.</p>
+    <button class="primary" id="introBtn" style="padding:13px 36px; font-size:15px;margin-top:8px">Take office ▸</button>
+  </div>
+</div>
+
+<!-- advisor prompt -->
+<div id="advisor" class="hidden" style="position:fixed;bottom:110px;left:14px;z-index:20;max-width:400px">
+  <div class="glass" style="border-color:#4d7396;background:#0d1a27ee;position:relative">
+    <div style="font-size:10px;letter-spacing:1.5px;color:var(--sky-link);margin-bottom:5px;font-weight:700">ADVISOR NOTE</div>
+    <div id="advisorText" style="font-size:13px;color:#c8d8e8;line-height:1.5"></div>
+    <button id="advisorDismiss" style="margin-top:8px;font-size:11px;padding:4px 10px;opacity:.7">Got it ▸</button>
+  </div>
+</div>
+
+<!-- end -->
+<div class="overlay hidden" id="end">
+  <div class="sheet glass" style="max-width:700px;text-align:left;padding:36px 44px">
+    <div style="text-align:center;margin-bottom:20px">
+      <h1 id="endTitle" style="font-size:32px;letter-spacing:4px"></h1>
+      <p id="endBody" style="text-align:center;margin:8px 0 0;color:var(--muted);font-size:14px"></p>
+    </div>
+    <!-- grade + reason -->
+    <div style="display:flex;align-items:flex-start;gap:22px;margin-bottom:20px;background:#0a0f16;border:1px solid var(--panel-line);border-radius:10px;padding:16px 20px">
+      <div style="text-align:center;min-width:60px">
+        <div style="font-size:9px;letter-spacing:1px;color:var(--dim);margin-bottom:4px">GRADE</div>
+        <div id="endGrade" style="font-size:52px;font-weight:800;line-height:1"></div>
+      </div>
+      <div style="flex:1">
+        <div id="endGradeReason" style="font-size:14px;color:#c8d4de;line-height:1.6;margin-bottom:8px"></div>
+      </div>
+    </div>
+    <!-- stats -->
+    <div id="endStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;text-align:center"></div>
+    <!-- debrief -->
+    <div style="background:#0a0f16;border:1px solid var(--panel-line);border-radius:10px;padding:14px 18px;margin-bottom:20px">
+      <div style="font-size:10px;letter-spacing:1.6px;color:#52606f;font-weight:700;margin-bottom:10px">WHAT HAPPENED?</div>
+      <div id="debriefList" style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:#c6d0da;line-height:1.55"></div>
+    </div>
+    <!-- shareable result badge -->
+    <div id="resultBadge"></div>
+    <div id="shareRow">
+      <textarea id="shareText" readonly></textarea>
+      <button id="copyBtn">Copy result</button>
+      <button id="dlBadgeBtn">Download badge</button>
+      <span id="copyOk">Copied!</span>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="primary" id="endBtn" style="padding:12px 36px">Run it again</button>
+    </div>
+  </div>
+</div>
+
+<!-- codex -->
+<div class="overlay hidden" id="codex">
+  <div class="glass frame">
+    <h1>SCIENCE CODEX</h1>
+    <div class="sub2">What the game rules stand for. Entries unlock as you live them.</div>
+    <div id="codexBody">
+      <div id="codexList"></div>
+      <div id="codexText"></div>
+    </div>
+    <div class="closeRow"><button id="codexClose">Close ✕</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   OVERSHOOT — single-file edition.
+   Same architecture as the Godot build: a headless, validated kernel
+   (ported 1:1 from overshoot-prototype-v2) and a presentation layer that
+   reads it and calls its actions. Nothing below the line computes math.
+   ===================================================================== */
+
+/* ---------------- kernel ---------------- */
+const CFG = {
+  gdp0:100, target:280, growthMax:.13, capRate:.18,  // easier: lower GDP target, faster growth, bigger budget
+  temp0:1.10, tempLimit:2.0, sens:.00075,            // slightly less sensitive climate
+  permafrostLeak:3,    // extra emissions/decade once permafrost thaws
+  waisSurge:.03,       // self-sustaining °C/decade once the West Antarctic ice sheet goes
+  amocPolDrain:1.0,    // political support lost/decade to weather chaos once AMOC fails
+  ccap0:10, fossilPlants0:5, plantAge0:1, plantSize:12,
+  costFossil:11, costCleanBase:26, rndDiscount:.82, costRetireMoney:16, costRnd:22,
+  costForest:8, forestAbsorb:4,                      // forests absorb slightly more
+  maxTurns:15, year0:2025, yearsPerTurn:10, secondsPerDecade:16,
+  pol0:14, polMax:30, polRegen:2.5, polRetireBase:3, lockinK:.45, fossilJobsBonus:1,
+  jtMoney:18, jtPol:6, taxPol:5, taxMoney:22, exchangeLockin:.05,
+  tempPressureStart:1.6, tempPressureRate:3.5, stagnationGrowth:.04, stagnationPol:2.5
+};
+
+/* Three real tipping elements, in the order science expects them to wake.
+   Each has a published-style risk RANGE; the actual threshold is hidden inside
+   it and only learned by crossing it. Crossing is permanent. */
+const TIPS=[
+  {id:"permafrost", name:"Permafrost thaw", min:180, max:260,
+   logLine:"TIPPING POINT — Arctic permafrost is thawing. Ancient frozen carbon now leaks into the sky every decade, no matter what you burn."},
+  {id:"wais", name:"West Antarctic ice sheet", min:280, max:380,
+   logLine:"TIPPING POINT — The West Antarctic ice sheet has begun an irreversible collapse. Warming gains momentum, and low coastal land is flooding."},
+  {id:"amoc", name:"Atlantic circulation (AMOC)", min:360, max:460,
+   logLine:"TIPPING POINT — The Atlantic overturning circulation is breaking down. Weather chaos now drains your political support every decade."}
+];
+
+class Sim {
+  constructor(){ this.onLog=[]; this.onChanged=[]; this.onEnded=[]; this.onExchanged=[]; this.onTipped=[]; this.reset(); }
+  log(t,k){ this.onLog.forEach(f=>f(t,k||"")); }
+  changed(){ this.onChanged.forEach(f=>f()); }
+  reset(){
+    this.gdp=CFG.gdp0; this.temp=CFG.temp0; this.cum=0; this.plants=[];
+    for(let i=0;i<CFG.fossilPlants0;i++) this.plants.push({age:CFG.plantAge0});
+    this.ccap=CFG.ccap0; this.rnd=0; this.forests=0;
+    this.pol=CFG.pol0; this.turn=0; this.year=CFG.year0;
+    this.tips={};
+    for(const tp of TIPS)
+      this.tips[tp.id]={thr:tp.min+Math.random()*(tp.max-tp.min), hit:false, turnHit:-1};
+    this.over=false;
+    this.capital=Math.round(this.gdp*CFG.capRate); this.spent=0;
+    this.changed();
+  }
+  fcap(){ return this.plants.length*CFG.plantSize; }
+  demand(){ return Math.round(40+this.gdp*0.4); }
+  cleanCost(){ return Math.round(CFG.costCleanBase*Math.pow(CFG.rndDiscount,this.rnd)); }
+  avail(){ return this.capital-this.spent; }
+  oldest(){ let b=null; for(const p of this.plants) if(!b||p.age>b.age) b=p; return b; }
+  retirePolCost(p){ return p?Math.round(CFG.polRetireBase*(1+CFG.lockinK*p.age)):0; }
+  _spend(c){ if(this.over||this.avail()<c) return false; this.spent+=c; return true; }
+
+  buildFossil(){
+    if(!this._spend(CFG.costFossil)) return false;
+    this.plants.push({age:0});
+    this.pol=Math.min(CFG.polMax,this.pol+CFG.fossilJobsBonus);
+    this.log(`▶ Built fossil plant. +${CFG.plantSize} energy now. +${CFG.fossilJobsBonus} support (jobs). Each decade it stands makes it harder and more expensive to retire.`,"warn");
+    this.changed(); return true;
+  }
+  buildClean(){
+    if(!this._spend(this.cleanCost())) return false;
+    this.ccap+=CFG.plantSize;
+    this.log(`▶ Built clean plant. +${CFG.plantSize} clean capacity. Dispatches first — cuts net emissions every decade without retiring anything.`,"good");
+    this.changed(); return true;
+  }
+  buildForest(){
+    if(!this._spend(CFG.costForest)) return false;
+    this.forests++;
+    this.log(`▶ Planted a forest. Absorbs ${CFG.forestAbsorb} emissions every decade — cheap mitigation, but it uses land you can't use for cities or power.`,"good");
+    this.changed(); return true;
+  }
+  retireOldest(){
+    if(this.over) return false;
+    const p=this.oldest(); if(!p) return false;
+    const pc=this.retirePolCost(p);
+    if(this.avail()<CFG.costRetireMoney||this.pol<pc) return false;
+    this.spent+=CFG.costRetireMoney; this.pol-=pc;
+    this.plants.splice(this.plants.indexOf(p),1);
+    this.log(`▶ Retired oldest fossil (age ${p.age}). −${CFG.plantSize} emissions, but you spent money and ${pc} support. The longer you waited, the more it cost.`,"good");
+    this.changed(); return true;
+  }
+  fundRnd(){
+    if(!this._spend(CFG.costRnd)) return false;
+    this.rnd++;
+    this.log(`▶ Funded clean R&D. No emissions cut today — but clean plants now cost ${this.cleanCost()} permanently. Early investment makes the late transition affordable.`,"good");
+    this.changed(); return true;
+  }
+  exchangeLockinFactor(){ const o=this.oldest(); return 1+CFG.exchangeLockin*(o?o.age:0); }
+  jtPolGain(){ return Math.max(1,Math.round(CFG.jtPol/this.exchangeLockinFactor())); }
+  taxMoneyGain(){ return Math.max(1,Math.round(CFG.taxMoney/this.exchangeLockinFactor())); }
+  justTransition(){
+    if(!this._spend(CFG.jtMoney)) return false;
+    const g=this.jtPolGain();
+    const lf=this.exchangeLockinFactor();
+    this.pol=Math.min(CFG.polMax,this.pol+g);
+    this.log(`▶ Just-transition fund. Money becomes support: −${CFG.jtMoney} capital → +${g} support. Lock-in penalty ×${lf.toFixed(2)} — the older your plants, the worse this rate gets.`,"good");
+    this.onExchanged.forEach(f=>f(-CFG.jtMoney,g)); this.changed(); return true;
+  }
+  carbonTax(){
+    if(this.over||this.pol<CFG.taxPol) return false;
+    const g=this.taxMoneyGain();
+    const lf=this.exchangeLockinFactor();
+    this.pol-=CFG.taxPol; this.capital+=g;
+    this.log(`▶ Carbon tax. Support becomes money: −${CFG.taxPol} support → +${g} capital. Politically costly — use it while you have a surplus. Lock-in penalty ×${lf.toFixed(2)}.`,"warn");
+    this.onExchanged.forEach(f=>f(g,-CFG.taxPol)); this.changed(); return true;
+  }
+  advance(){
+    if(this.over) return;
+    const d=this.demand(), cap=this.fcap()+this.ccap, used=Math.min(cap,d);
+    const cleanUsed=Math.min(this.ccap,used), fossilUsed=used-cleanUsed;
+    const absorbed=Math.min(fossilUsed,this.forests*CFG.forestAbsorb);
+    const emitted=fossilUsed-absorbed;
+    const leak=this.tips.permafrost.hit?CFG.permafrostLeak:0;   // nature's own emissions
+    this.cum+=emitted+leak;
+    const meet=Math.min(1,cap/d), growth=CFG.growthMax*meet;
+    this.gdp*=(1+growth);
+    this.temp=CFG.temp0+this.cum*CFG.sens;
+    // tipping cascade — thresholds are hidden inside published ranges; crossing is permanent
+    for(const td of TIPS){
+      const s=this.tips[td.id];
+      if(!s.hit&&this.cum>s.thr){
+        s.hit=true; s.turnHit=this.turn;
+        this.log(td.logLine,"bad");
+        this.onTipped.forEach(f=>f(td.id));
+      }
+    }
+    if(this.tips.wais.hit) this.temp+=CFG.waisSurge*(this.turn-this.tips.wais.turnHit);
+    for(const p of this.plants) p.age++;
+    const tp=Math.max(0,this.temp-CFG.tempPressureStart)*CFG.tempPressureRate;
+    const sp=growth<CFG.stagnationGrowth?CFG.stagnationPol:0;
+    const regen=CFG.polRegen-(this.tips.amoc.hit?CFG.amocPolDrain:0);
+    this.pol=Math.min(CFG.polMax,this.pol+regen-tp-sp);
+    this.turn++; this.year+=CFG.yearsPerTurn;
+    this.capital=Math.round(this.gdp*CFG.capRate); this.spent=0;
+    let line=`Decade closed. Net emissions +${emitted+leak}${absorbed>0?` (forests absorbed ${absorbed})`:""}${leak>0?` (permafrost leaked ${leak})`:""}.`;
+    line+=meet<.999?` Energy short — growth throttled to ${(growth*100).toFixed(1)}%.`
+                   :` Demand met — GDP +${(growth*100).toFixed(1)}%.`;
+    this.log(line, meet<.85?"bad":"");
+    if(tp>0.5) this.log(`Climate disasters cost you ${tp.toFixed(1)} support this decade.`,"bad");
+    if(sp>0) this.log(`Stalled economy cost you ${sp} support — voters are restless.`,"bad");
+    this._checkEnd(); this.changed();
+  }
+  _checkEnd(){
+    if(this.pol<0) this._end("VOTED OUT","You ran out of political capital before your plan matured.");
+    else if(this.temp>=CFG.tempLimit) this._end("CLIMATE COLLAPSE","You pushed past +2.0°. Lock-in came due.");
+    else if(this.turn>=CFG.maxTurns){
+      if(this.gdp>=CFG.target) this._end("STABILIZED","Target hit, held under 2°, mandate intact. A managed transition.");
+      else this._end("STAGNATION","Climate safe, seat secure, but the economy stalled below target.");
+    }
+  }
+  _end(t,b){ this.over=true; this.onEnded.forEach(f=>f(t,b)); }
+
+  anyTipped(){ return TIPS.some(td=>this.tips[td.id].hit); }
+
+  /* read-only "if nothing changes" forecast. Two full branches: the hi edge
+     assumes every dormant tipping point fires at the EARLY end of its range,
+     the lo edge at the LATE end. Already-crossed tips run on both branches —
+     that part of the future is no longer uncertain. */
+  projectForward(){
+    const branch=(early)=>{
+      let g=this.gdp, c=this.cum, t=this.turn, y=this.year;
+      const fc=this.fcap();
+      const st={};
+      for(const td of TIPS){
+        const s=this.tips[td.id];
+        st[td.id]={hit:s.hit, turnHit:s.turnHit, thr:s.hit?0:(early?td.min:td.max)};
+      }
+      const rows=[];
+      while(t<CFG.maxTurns){
+        const d=Math.round(40+g*0.4), cap=fc+this.ccap, used=Math.min(cap,d);
+        const fu=used-Math.min(this.ccap,used);
+        const leak=st.permafrost.hit?CFG.permafrostLeak:0;
+        c+=Math.max(0,fu-this.forests*CFG.forestAbsorb)+leak;
+        g*=(1+CFG.growthMax*Math.min(1,cap/d));
+        let temp=CFG.temp0+c*CFG.sens;
+        for(const td of TIPS){
+          const s=st[td.id];
+          if(!s.hit&&c>s.thr){ s.hit=true; s.turnHit=t; }
+        }
+        if(st.wais.hit) temp+=CFG.waisSurge*(t-st.wais.turnHit);
+        t++; y+=CFG.yearsPerTurn;
+        rows.push({year:y,gdp:g,temp});
+      }
+      return rows;
+    };
+    const hiRows=branch(true), loRows=branch(false);
+    return hiRows.map((r,i)=>({year:r.year,gdp:r.gdp,hi:r.temp,lo:loRows[i].temp}));
+  }
+}
+const sim=new Sim();
+
+/* ---------------- time controller ---------------- */
+const clock={speed:1,paused:true,autoPause:false,accum:0,
+  beat(){ if(sim.over) return; this.accum=0; sim.advance(); if(this.autoPause) this.setPaused(true); scheduleNextAdvisor(); },
+  setPaused(p){ this.paused=p; playBtn.textContent=p?"▶ Play":"⏸ Pause"; },
+  tick(dt){
+    if(this.paused||sim.over) return;
+    this.accum+=dt*this.speed;
+    if(this.accum>=CFG.secondsPerDecade) this.beat();
+    progressBar.style.width=(100*Math.min(1,this.accum/CFG.secondsPerDecade))+"%";
+  },
+  progress(){ return Math.min(1,this.accum/CFG.secondsPerDecade); }
+};
+
+/* ---------------- world model ---------------- */
+const COLS=12, ROWS=12, HW=64, HH=32;
+const Z={EMPTY:0,ENERGY:1,CITY:2};
+const world={
+  zones:new Array(COLS*ROWS).fill(Z.EMPTY),
+  plant:new Array(COLS*ROWS).fill(""),          // "" | "fossil" | "clean"
+  ref:new Array(COLS*ROWS).fill(null),          // kernel plant object this tile hosts
+  seedPhase:new Array(COLS*ROWS).fill(0).map(()=>Math.random()*Math.PI*2),
+  flooded:new Set(),     // tiles the sea took after the ice-sheet tip (empty land only)
+  mode:"zoneE", lastTurn:0,
+  seed(){
+    this.zones.fill(Z.EMPTY); this.plant.fill(""); this.ref.fill(null);
+    this.flooded.clear();
+    const r0=Math.floor(ROWS/2), c0=Math.floor(COLS/2)-2;
+    for(let k=0;k<sim.plants.length;k++){
+      const i=r0*COLS+c0+k;
+      this.zones[i]=Z.ENERGY; this.plant[i]="fossil"; this.ref[i]=sim.plants[k];
+    }
+    // a starting town so the land feels lived-in
+    for(const [dc,dr] of [[-2,-2],[-1,-2],[-2,-1],[2,2],[3,2],[2,3],[-3,1]]){
+      const i=(r0+dr)*COLS+(c0+2+dc);
+      if(i>=0&&i<COLS*ROWS&&this.plant[i]==="") this.zones[i]=Z.CITY;
+    }
+  },
+  sync(){  // keep the board truthful to the kernel every change
+    if(sim.turn<this.lastTurn) this.seed();
+    this.lastTurn=sim.turn;
+    for(let i=0;i<this.plant.length;i++){
+      if(this.plant[i]==="fossil" && (!this.ref[i]||!sim.plants.includes(this.ref[i]))){
+        this.plant[i]=""; this.ref[i]=null;
+        spawnBurst(i);   // demolition dust
+      }
+    }
+  },
+  // why a placement would fail here (null = it's allowed) — used for the
+  // hover tint AND the failure toast, so what you see is what you get
+  // the sea claims unused coastal land when the ice sheet goes
+  flood(){
+    for(let i=0;i<COLS*ROWS;i++){
+      const c=i%COLS, r=(i/COLS)|0;
+      if((c===0||r===0||c===COLS-1||r===ROWS-1)&&this.plant[i]===""&&this.zones[i]===Z.EMPTY)
+        this.flooded.add(i);
+    }
+  },
+  check(i){
+    if(i<0) return null;
+    if(sim.over) return "Game over — run it again";
+    if(this.flooded.has(i)) return "Flooded — the sea took this land";
+    if(this.plant[i]!=="") return "Pick an empty tile";
+    const m=this.mode, av=sim.avail();
+    if(m==="fossil"&&av<CFG.costFossil) return `Need ${CFG.costFossil} capital`;
+    if(m==="clean"&&av<sim.cleanCost()) return `Need ${sim.cleanCost()} capital`;
+    if(m==="forest"){
+      if(this.zones[i]!==Z.EMPTY) return "Forests need open land";
+      if(av<CFG.costForest) return `Need ${CFG.costForest} capital`;
+    }
+    return null;
+  },
+  apply(i){
+    if(i<0) return;
+    const err=this.check(i);
+    if(err){ toast(i,err); return; }
+    const m=this.mode;
+    if(m==="zoneE"){ this.zones[i]=Z.ENERGY; pulse(i,"170,180,192"); }
+    else if(m==="zoneC"){ this.zones[i]=Z.CITY; pulse(i,"222,206,150"); }
+    else if(m==="fossil"&&sim.buildFossil()){
+      this.zones[i]=Z.ENERGY; this.plant[i]="fossil"; this.ref[i]=sim.plants[sim.plants.length-1];
+      pulse(i,"255,140,70");
+      toast(i,`Fossil online: +${CFG.plantSize} energy, +support — retirement cost will rise`,true);
+      const [x,y]=cell(i%COLS,(i/COLS)|0);          // first soot, immediately
+      for(let k=0;k<16;k++) spawnSmoke(x+(Math.random()-.5)*36,y-16-Math.random()*26,3);
+    }
+    else if(m==="clean"&&sim.buildClean()){
+      this.zones[i]=Z.ENERGY; this.plant[i]="clean";
+      pulse(i,"140,225,255");
+      toast(i,`Clean online: +${CFG.plantSize} energy, zero emissions`,true);
+      const [x,y]=cell(i%COLS,(i/COLS)|0);          // a satisfying glint shower
+      for(let k=0;k<14;k++) parts.push({x:x+(Math.random()-.5)*60, y:y-6-Math.random()*30,
+        vx:(Math.random()-.5)*30, vy:-26-Math.random()*30, g:-8, life:.8+Math.random()*.5,
+        age:0, s:1.6+Math.random()*2, col:[185,235,255]});
+    }
+    else if(m==="forest"&&sim.buildForest()){
+      this.plant[i]="forest";
+      pulse(i,"110,215,140");
+      toast(i,`Forest restored: −${CFG.forestAbsorb} emissions/decade, land committed`,true);
+    }
+  }
+};
+world.seed();
+sim.onChanged.push(()=>world.sync());
+
+/* ---------------- renderer ---------------- */
+const cv=document.getElementById("world"), ctx=cv.getContext("2d");
+let W=0,H=0,DPR=1;
+function resize(){ DPR=window.devicePixelRatio||1; W=innerWidth; H=innerHeight;
+  cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+"px"; cv.style.height=H+"px"; }
+addEventListener("resize",resize); resize();
+
+const cam={x:0,y:HH*ROWS*0.55,zoom:.62};
+function cell(c,r){ return [(c-r)*HW, (c+r)*HH]; }
+function toScreen(x,y){ return [ (x-cam.x)*cam.zoom + (W-430)/2, (y-cam.y)*cam.zoom + H/2 ]; }
+function toWorld(sx,sy){ return [ (sx-(W-430)/2)/cam.zoom + cam.x, (sy-H/2)/cam.zoom + cam.y ]; }
+function pickTile(sx,sy){
+  const [wx,wy]=toWorld(sx,sy);
+  const c=Math.round((wx/HW+wy/HH)/2), r=Math.round((wy/HH-wx/HW)/2);
+  return (c<0||c>=COLS||r<0||r>=ROWS)?-1:r*COLS+c;
+}
+
+/* particles: smoke, steam, dust */
+const parts=[];
+function spawnBurst(i){
+  const c=i%COLS, r=(i/COLS)|0, [x,y]=cell(c,r);
+  for(let k=0;k<26;k++) parts.push({x:x+(Math.random()-.5)*40, y:y-10-Math.random()*30,
+    vx:(Math.random()-.5)*60, vy:-30-Math.random()*70, g:90, life:.9+Math.random()*.5, age:0,
+    s:3+Math.random()*5, col:[140,132,120]});
+}
+function spawnSmoke(x,y,age){
+  const dark=Math.min(1,age/10);
+  parts.push({x:x+(Math.random()-.5)*6, y, vx:4+Math.random()*8, vy:-14-Math.random()*10,
+    g:-6, life:2.4+Math.random()*1.4, age:0, s:3+Math.random()*3+dark*2, grow:6,
+    col:[70-dark*25,70-dark*25,74-dark*22]});
+}
+function spawnSteam(x,y){
+  parts.push({x:x+(Math.random()-.5)*8, y, vx:(Math.random()-.5)*6, vy:-18-Math.random()*8,
+    g:-4, life:1.8, age:0, s:4+Math.random()*4, grow:8, col:[200,205,212]});
+}
+
+function heat01(){ return Math.max(0,Math.min(1,(sim.temp-CFG.temp0)/(CFG.tempLimit-CFG.temp0))); }
+
+/* placement feedback: floating toasts (DOM) + expanding tile pulses (canvas) */
+function toast(i,msg,ok){
+  const c=i%COLS, r=(i/COLS)|0, [wx,wy]=cell(c,r), [sx,sy]=toScreen(wx,wy);
+  const d=document.createElement("div");
+  d.className="toast"+(ok?" ok":""); d.textContent=msg;
+  d.style.left=sx+"px"; d.style.top=(sy-26)+"px";
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),1550);
+}
+const pulses=[];
+function pulse(i,col){
+  const c=i%COLS, r=(i/COLS)|0, [x,y]=cell(c,r);
+  pulses.push({x,y,age:0,life:.7,col});
+}
+
+function drawSky(t,now){
+  const h=heat01();
+  // day position: the sun crosses the sky once per decade
+  const p=sim.over?0.5:clock.progress();
+  const sunX=W*0.12+p*(W-430-W*0.2), sunY=H*0.16+Math.sin(p*Math.PI)*-H*0.05+H*0.06;
+  let top=[lerp(13,46,h),lerp(22,28,h),lerp(38,30,h)];
+  let hor=[lerp(38,120,h),lerp(60,62,h),lerp(86,44,h)];
+  if(sim.tips.amoc.hit){ // a broken ocean current means a grey, violent sky
+    top=top.map((v,i2)=>lerp(v,[36,42,52][i2],.55));
+    hor=hor.map((v,i2)=>lerp(v,[58,64,74][i2],.55));
+  }
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,`rgb(${top.map(Math.round)})`);
+  g.addColorStop(.62,`rgb(${hor.map(Math.round)})`);
+  g.addColorStop(1,`rgb(${Math.round(hor[0]*.5)},${Math.round(hor[1]*.5)},${Math.round(hor[2]*.55)})`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  // sun with bloom — reddens and dims through haze as warming climbs
+  const sg=ctx.createRadialGradient(sunX,sunY,0,sunX,sunY,90+h*60);
+  sg.addColorStop(0,`rgba(${255},${Math.round(235-h*90)},${Math.round(190-h*120)},${.9-h*.25})`);
+  sg.addColorStop(.25,`rgba(255,${Math.round(210-h*80)},${Math.round(140-h*80)},.35)`);
+  sg.addColorStop(1,"rgba(255,180,120,0)");
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(sunX,sunY,90+h*60,0,7); ctx.fill();
+  // far mountains, two parallax ridges
+  ridge(H*.55,42,.5,[24,32,44],now*.000018);
+  ridge(H*.60,60,.7,[18,24,34],now*.00003);
+  // drifting clouds
+  ctx.save();
+  for(let i=0;i<5;i++){
+    const cx=((now*.008*(1+i*.22)+i*340)%(W+420))-210, cy=H*.12+i*H*.07;
+    const cg=ctx.createRadialGradient(cx,cy,0,cx,cy,90);
+    const smog=h*.5;
+    cg.addColorStop(0,`rgba(${200-smog*120},${198-smog*130},${205-smog*150},${.10+h*.10})`);
+    cg.addColorStop(1,"rgba(200,198,205,0)");
+    ctx.fillStyle=cg; ctx.beginPath(); ctx.ellipse(cx,cy,150,34,0,0,7); ctx.fill();
+  }
+  ctx.restore();
+  // low haze thickens with warming
+  const hz=ctx.createLinearGradient(0,H*.5,0,H);
+  hz.addColorStop(0,"rgba(0,0,0,0)");
+  hz.addColorStop(1,`rgba(${Math.round(120+h*80)},${Math.round(70-h*20)},40,${h*.16})`);
+  ctx.fillStyle=hz; ctx.fillRect(0,0,W,H);
+}
+function ridge(baseY,amp,sc,col,off){
+  ctx.beginPath(); ctx.moveTo(0,H);
+  for(let x=0;x<=W;x+=14){
+    const y=baseY - Math.abs(Math.sin(x*.004*sc+off*40+1.7))*amp - Math.sin(x*.013*sc)*amp*.3;
+    ctx.lineTo(x,y);
+  }
+  ctx.lineTo(W,H); ctx.closePath();
+  ctx.fillStyle=`rgb(${col})`; ctx.fill();
+}
+function lerp(a,b,t){ return a+(b-a)*t; }
+
+function diamond(x,y,hw,hh){ ctx.beginPath(); ctx.moveTo(x,y-hh); ctx.lineTo(x+hw,y); ctx.lineTo(x,y+hh); ctx.lineTo(x-hw,y); ctx.closePath(); }
+function box(x,y,w,d,h,top,left,right){ // simple iso box; (x,y)=floor centre
+  // left face
+  ctx.fillStyle=left; ctx.beginPath();
+  ctx.moveTo(x-w,y-w/2); ctx.lineTo(x,y); ctx.lineTo(x,y-h); ctx.lineTo(x-w,y-w/2-h); ctx.closePath(); ctx.fill();
+  // right face
+  ctx.fillStyle=right; ctx.beginPath();
+  ctx.moveTo(x+d,y-d/2); ctx.lineTo(x,y); ctx.lineTo(x,y-h); ctx.lineTo(x+d,y-d/2-h); ctx.closePath(); ctx.fill();
+  // top
+  ctx.fillStyle=top; ctx.beginPath();
+  ctx.moveTo(x,y-h); ctx.lineTo(x-w,y-w/2-h); ctx.lineTo(x-w+d,y-w/2-d/2-h); ctx.lineTo(x+d,y-d/2-h); ctx.closePath(); ctx.fill();
+}
+
+function drawGround(i,now){
+  const c=i%COLS, r=(i/COLS)|0, [x,y]=cell(c,r);
+  // drowned land: animated sea instead of ground
+  if(world.flooded.has(i)){
+    diamond(x,y,HW*.985,HH*.985);
+    ctx.fillStyle="#1d4361"; ctx.fill();
+    const sh2=.06+.05*Math.sin(now*.0016+world.seedPhase[i]);
+    ctx.fillStyle=`rgba(150,210,240,${sh2})`; ctx.fill();
+    ctx.strokeStyle="rgba(0,0,0,.3)"; ctx.lineWidth=1; ctx.stroke();
+    return;
+  }
+  let top="#4a6135", alt="#516a3a";
+  if((c+r)%2) top=alt;
+  if(world.zones[i]===Z.ENERGY) top="#5c5e64";
+  if(world.zones[i]===Z.CITY) top="#6f6b61";
+  if(world.plant[i]==="clean") top="#2c4f6e";
+  if(world.plant[i]==="forest") top="#3a5a2e";
+  diamond(x,y,HW*.985,HH*.985);
+  ctx.fillStyle=top; ctx.fill();
+  // thawing permafrost mottles the outer land with dark melt scars
+  if(sim.tips.permafrost.hit&&(c<2||r<2||c>=COLS-2||r>=ROWS-2)){
+    const ph=world.seedPhase[i];
+    ctx.fillStyle="rgba(38,30,26,.30)";
+    diamond(x+Math.cos(ph)*16, y+Math.sin(ph)*7, HW*.3, HH*.3); ctx.fill();
+    diamond(x+Math.cos(ph*2.3)*22, y+Math.sin(ph*1.7)*9, HW*.16, HH*.16); ctx.fill();
+  }
+  ctx.strokeStyle="rgba(0,0,0,.35)"; ctx.lineWidth=1; ctx.stroke();
+  // soft edge highlight (sun-side)
+  diamond(x,y,HW*.985,HH*.985);
+  const sh=ctx.createLinearGradient(x-HW,y,x+HW,y);
+  sh.addColorStop(0,"rgba(255,235,200,.08)"); sh.addColorStop(.5,"rgba(0,0,0,0)"); sh.addColorStop(1,"rgba(0,0,30,.12)");
+  ctx.fillStyle=sh; ctx.fill();
+}
+
+function drawFossil(i,now){
+  const c=i%COLS, r=(i/COLS)|0, [x,y]=cell(c,r);
+  const age=world.ref[i]?world.ref[i].age:0;
+  const soot=Math.min(.8,age/10);
+  const dk=v=>Math.round(v*(1-soot*.55));
+  // turbine hall
+  box(x+6,y+6,34,22,26,`rgb(${dk(120)},${dk(118)},${dk(122)})`,`rgb(${dk(88)},${dk(86)},${dk(92)})`,`rgb(${dk(70)},${dk(68)},${dk(74)})`);
+  // glowing furnace door
+  ctx.fillStyle=`rgba(255,${140-soot*60},40,${.55-soot*.2})`;
+  ctx.fillRect(x+12,y-10,7,8);
+  // cooling tower (curved silhouette)
+  const tx=x-22, ty=y+4, th=46+Math.min(10,age);
+  const grad=ctx.createLinearGradient(tx-16,0,tx+16,0);
+  grad.addColorStop(0,`rgb(${dk(150)},${dk(148)},${dk(150)})`);
+  grad.addColorStop(.5,`rgb(${dk(190)},${dk(186)},${dk(186)})`);
+  grad.addColorStop(1,`rgb(${dk(110)},${dk(108)},${dk(112)})`);
+  ctx.fillStyle=grad;
+  ctx.beginPath();
+  ctx.moveTo(tx-15,ty); ctx.bezierCurveTo(tx-7,ty-th*.55,tx-11,ty-th*.8,tx-9,ty-th);
+  ctx.lineTo(tx+9,ty-th); ctx.bezierCurveTo(tx+11,ty-th*.8,tx+7,ty-th*.55,tx+15,ty);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle=`rgb(${dk(60)},${dk(58)},${dk(62)})`;
+  ctx.beginPath(); ctx.ellipse(tx,ty-th,9,3,0,0,7); ctx.fill();
+  // chimney
+  ctx.fillStyle=`rgb(${dk(95)},${dk(80)},${dk(78)})`;
+  ctx.fillRect(x+26,y-44,6,38);
+  ctx.fillStyle="rgba(255,60,60,"+(0.4+0.4*Math.sin(now*.004+world.seedPhase[i]))+")";
+  ctx.fillRect(x+27.5,y-46,3,3);
+  // soot streaks on old plants
+  if(age>3){ ctx.strokeStyle=`rgba(20,16,14,${soot*.5})`; ctx.lineWidth=2;
+    for(let k=0;k<3;k++){ ctx.beginPath(); ctx.moveTo(tx-8+k*8,ty-th+4); ctx.lineTo(tx-9+k*8,ty-th+16+k*3); ctx.stroke(); } }
+  // emissions
+  if(Math.random()<.25+Math.min(.4,age*.04)) spawnSmoke(x+29,y-46,age);
+  if(Math.random()<.18) spawnSteam(tx,y+4-th);
+}
+
+function drawClean(i,now){
+  const c=i%COLS, r=(i/COLS)|0, [x,y]=cell(c,r);
+  // solar rows with moving glint
+  for(let k=-1;k<=1;k++){
+    const px=x+k*26, py=y+k*4;
+    ctx.fillStyle="#16314a";
+    ctx.beginPath(); ctx.moveTo(px-16,py); ctx.lineTo(px+2,py-9); ctx.lineTo(px+16,py-2); ctx.lineTo(px-2,py+7); ctx.closePath(); ctx.fill();
+    const gl=(Math.sin(now*.001+world.seedPhase[i]+k)+1)/2;
+    ctx.fillStyle=`rgba(160,220,255,${.10+gl*.22})`;
+    ctx.beginPath(); ctx.moveTo(px-16,py); ctx.lineTo(px+2,py-9); ctx.lineTo(px+8,py-7); ctx.lineTo(px-10,py+2); ctx.closePath(); ctx.fill();
+  }
+  // wind turbine
+  const bx=x+18, by=y-2, mast=44;
+  ctx.strokeStyle="#d9dee4"; ctx.lineWidth=2.4;
+  ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(bx,by-mast); ctx.stroke();
+  const a=now*.0035+world.seedPhase[i];
+  ctx.save(); ctx.translate(bx,by-mast);
+  for(let b=0;b<3;b++){
+    const t=a+b*2.094;
+    ctx.beginPath(); ctx.moveTo(0,0);
+    ctx.quadraticCurveTo(Math.cos(t)*9,Math.sin(t)*9,Math.cos(t)*20,Math.sin(t)*20);
+    ctx.lineWidth=2.2; ctx.strokeStyle="#eef2f6"; ctx.stroke();
+  }
+  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(0,0,2.4,0,7); ctx.fill();
+  ctx.restore();
+}
+
+function drawCity(i,now){
+  const c=i%COLS, r=(i/COLS)|0, [x,y]=cell(c,r);
+  const wealth=Math.min(1,sim.gdp/CFG.target);
+  const ph=world.seedPhase[i];
+  const hts=[16+wealth*26+Math.sin(ph)*4, 24+wealth*38, 12+wealth*20+Math.cos(ph)*4];
+  const xs=[-20,4,24], ys=[4,8,2];
+  for(let k=0;k<3;k++){
+    const bx=x+xs[k], by=y+ys[k], h=hts[k];
+    box(bx,by,16,12,h,"#8d9097","#5d6168","#4a4e55");
+    // lit windows — more of the city lights up as the economy grows
+    for(let wy=6;wy<h-4;wy+=7) for(let wx=0;wx<2;wx++){
+      const on=Math.sin(ph*7+wy*3.1+wx*5.7)>.9-wealth*1.1;
+      if(on){ ctx.fillStyle=`rgba(255,214,120,${.5+.3*Math.sin(now*.002+wy)})`;
+        ctx.fillRect(bx-12+wx*6,by-8-wy,3,4); }
+    }
+  }
+}
+
+function drawForest(i,now){
+  const c=i%COLS, r=(i/COLS)|0, [x,y]=cell(c,r);
+  const ph=world.seedPhase[i], h=heat01();
+  // a small stand of pines; canopies dry toward olive as warming climbs
+  for(let k=0;k<5;k++){
+    const a=ph+k*1.9;
+    const px=x+Math.cos(a)*(9+k*7), py=y+Math.sin(a)*(4+k*2.6);
+    const s=7+((Math.sin(ph*3+k*2)+1))*3;
+    const sway=Math.sin(now*.0012+ph+k)*1.2;
+    ctx.fillStyle="#4a3625"; ctx.fillRect(px-1,py-3,2,4);
+    ctx.fillStyle=`rgb(${Math.round(26+26*h)},${Math.round(96-26*h)},${Math.round(40-6*h)})`;
+    tri(px+sway,py-7-s*.3,6+s*.4);
+    ctx.fillStyle=`rgb(${Math.round(34+30*h)},${Math.round(122-34*h)},${Math.round(52-8*h)})`;
+    tri(px+sway*.6,py-13-s*.5,5+s*.3);
+  }
+}
+function tri(x,y,w){ ctx.beginPath(); ctx.moveTo(x,y-w*1.5); ctx.lineTo(x+w,y); ctx.lineTo(x-w,y); ctx.closePath(); ctx.fill(); }
+
+let hoverTile=-1;
+function drawWorldLayer(now){
+  ctx.save();
+  ctx.translate((W-430)/2,H/2); ctx.scale(cam.zoom,cam.zoom); ctx.translate(-cam.x,-cam.y);
+  // the sea the island sits in — it matters more once the ice sheet goes
+  const ocy=(ROWS-1)*HH;
+  diamond(0,ocy,HW*(COLS+1.7),HH*(ROWS+1.7));
+  ctx.fillStyle="#143049"; ctx.fill();
+  ctx.strokeStyle=`rgba(140,200,235,${.10+.05*Math.sin(now*.0018)})`;
+  ctx.lineWidth=2; ctx.stroke(); ctx.lineWidth=1;
+  // ground first
+  for(let i=0;i<COLS*ROWS;i++) drawGround(i,now);
+  // hover highlight — green when the current tool can act here, red when it can't
+  if(hoverTile>=0){
+    const c=hoverTile%COLS, r=(hoverTile/COLS)|0, [x,y]=cell(c,r);
+    const bad=world.check(hoverTile)!==null;
+    diamond(x,y,HW*.985,HH*.985);
+    ctx.fillStyle=bad?"rgba(255,93,93,.13)":"rgba(120,255,170,.12)"; ctx.fill();
+    ctx.strokeStyle=bad?"rgba(255,93,93,.55)":"rgba(150,255,190,.6)"; ctx.lineWidth=1.6; ctx.stroke();
+  }
+  // structures back-to-front
+  for(let s=0;s<=COLS+ROWS-2;s++)
+    for(let cc=0;cc<COLS;cc++){
+      const rr=s-cc; if(rr<0||rr>=ROWS) continue;
+      const i=rr*COLS+cc;
+      if(world.plant[i]==="fossil") drawFossil(i,now);
+      else if(world.plant[i]==="clean") drawClean(i,now);
+      else if(world.plant[i]==="forest") drawForest(i,now);
+      else if(world.zones[i]===Z.CITY) drawCity(i,now);
+    }
+  // success pulses: an expanding diamond ring on the acted tile
+  for(const p of pulses){
+    const k=p.age/p.life;
+    ctx.strokeStyle=`rgba(${p.col},${(1-k)*.9})`;
+    ctx.lineWidth=2.6*(1-k)+.6;
+    diamond(p.x,p.y,HW*(.4+k*.8),HH*(.4+k*.8));
+    ctx.stroke();
+  }
+  ctx.lineWidth=1;
+  // particles live in world space
+  ctx.globalCompositeOperation="lighter";
+  for(const p of parts){
+    const k=1-p.age/p.life;
+    ctx.fillStyle=`rgba(${p.col[0]},${p.col[1]},${p.col[2]},${.34*k})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.s+(p.grow||0)*(1-k),0,7); ctx.fill();
+  }
+  ctx.globalCompositeOperation="source-over";
+  ctx.restore();
+}
+
+let lastT=performance.now();
+function frame(now){
+  const dt=Math.min(.1,(now-lastT)/1000); lastT=now;
+  clock.tick(dt);
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i]; p.age+=dt;
+    if(p.age>=p.life){ parts.splice(i,1); continue; }
+    p.vy+=(p.g||0)*dt; p.x+=p.vx*dt; p.y+=p.vy*dt;
+  }
+  for(let i=pulses.length-1;i>=0;i--){
+    pulses[i].age+=dt;
+    if(pulses[i].age>=pulses[i].life) pulses.splice(i,1);
+  }
+  // tipping-point ambience
+  if(sim.tips.permafrost.hit&&Math.random()<.25){     // cold mist off the thawing edges
+    const edge=Math.floor(Math.random()*COLS*ROWS);
+    const c2=edge%COLS, r2=(edge/COLS)|0;
+    if(c2<2||r2<2||c2>=COLS-2||r2>=ROWS-2){
+      const [mx,my]=cell(c2,r2);
+      parts.push({x:mx+(Math.random()-.5)*40, y:my-4, vx:(Math.random()-.5)*5, vy:-6,
+        g:-1, life:3, age:0, s:6+Math.random()*5, grow:12, col:[150,168,158]});
+    }
+  }
+  ctx.save(); ctx.scale(DPR,DPR);
+  drawSky(0,now);
+  drawWorldLayer(now);
+  if(sim.tips.amoc.hit){                              // storm rain, screen-space
+    ctx.strokeStyle="rgba(165,195,225,.11)"; ctx.lineWidth=1;
+    for(let k=0;k<55;k++){
+      const rx=((k*167)%(W+40))-20+Math.sin(k)*8;
+      const ry=((k*9719+now*.5)%(H+30))-15;
+      ctx.beginPath(); ctx.moveTo(rx,ry); ctx.lineTo(rx-3,ry+13); ctx.stroke();
+    }
+  }
+  ctx.restore();
+  smoothHud(dt,now);
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- HUD / dashboard ---------------- */
+const $=id=>document.getElementById(id);
+const playBtn=$("playBtn"), progressBar=$("progressBar");
+let dispGdp=CFG.gdp0, dispTemp=CFG.temp0;
+
+function smoothHud(dt,now){
+  const k=Math.min(1,dt*4);
+  dispGdp+=(sim.gdp-dispGdp)*k; dispTemp+=(sim.temp-dispTemp)*k;
+  $("sGdp").textContent=`${Math.round(dispGdp)} / ${CFG.target}`;
+  $("sGdp").style.color=dispGdp>=CFG.target?"var(--good)":"var(--ink)";
+  $("sTemp").textContent=`+${dispTemp.toFixed(2)}°`;
+  const h=Math.max(0,Math.min(1,(dispTemp-CFG.temp0)/(CFG.tempLimit-CFG.temp0)));
+  $("sTemp").style.color=`rgb(${Math.round(107+148*h)},${Math.round(210-118*h)},${Math.round(128-36*h)})`;
+  const yr=sim.over?sim.year:sim.year+Math.round(clock.progress()*CFG.yearsPerTurn);
+  $("yearLabel").textContent=`Year ${yr}`;
+  $("heatpulse").style.opacity=h>.8?(h-.8)*4:0;
+}
+
+function fmtCost(el,txt,isNeed){
+  const c=el.querySelector(".cost");
+  c.textContent=txt;
+  c.style.color=isNeed?"var(--bad)":"var(--muted)";
+}
+function render(){
+  $("sPol").textContent=Math.round(sim.pol);
+  $("sPol").style.color=sim.pol<5?"var(--bad)":"var(--pol)";
+  $("sBudget").textContent=sim.avail();
+  $("kF").textContent=sim.fcap(); $("kC").textContent=sim.ccap;
+  $("kD").textContent=sim.demand(); $("kR").textContent=sim.rnd;
+  const d=sim.demand(), cap=sim.fcap()+sim.ccap, used=Math.min(cap,d);
+  const fossilUsed=used-Math.min(sim.ccap,used);
+  const absorbed=Math.min(fossilUsed,sim.forests*CFG.forestAbsorb);
+  $("kE").textContent=absorbed>0?`${fossilUsed-absorbed} (−${absorbed} forests)`:fossilUsed-absorbed;
+  $("kForest").textContent=sim.forests?`${sim.forests} · absorb ${sim.forests*CFG.forestAbsorb}/dec`:"0";
+  const o=sim.oldest(); $("kO").textContent=o?`${o.age} dec`:"—";
+
+  // each button's cost label becomes a REASON when you can't use it
+  const av=sim.avail(), cc=sim.cleanCost(), rp=sim.retirePolCost(o);
+  let retireTxt=`${CFG.costRetireMoney} money · −${rp} support`, retireNeed=false;
+  if(!o){ retireTxt="No fossil plants left"; }
+  else{
+    const needM=av<CFG.costRetireMoney, needP=sim.pol<rp;
+    if(needM&&needP){ retireTxt=`Need ${CFG.costRetireMoney} money · ${rp} support`; retireNeed=true; }
+    else if(needM){ retireTxt=`Need ${CFG.costRetireMoney} money`; retireNeed=true; }
+    else if(needP){ retireTxt=`Need ${rp} support (lock-in)`; retireNeed=true; }
+  }
+  fmtCost($("aRetire"),retireTxt,retireNeed);
+  fmtCost($("aRnd"), av<CFG.costRnd?`Need ${CFG.costRnd} capital`:`cost ${CFG.costRnd}`, av<CFG.costRnd);
+  fmtCost($("aJt"), av<CFG.jtMoney?`Need ${CFG.jtMoney} capital`:`${CFG.jtMoney} → +${sim.jtPolGain()} support`, av<CFG.jtMoney);
+  fmtCost($("aTax"), sim.pol<CFG.taxPol?`Need ${CFG.taxPol} support`:`−${CFG.taxPol} support → +${sim.taxMoneyGain()}`, sim.pol<CFG.taxPol);
+
+  $("aRetire").disabled=sim.over||!o||av<CFG.costRetireMoney||sim.pol<rp;
+  $("aRnd").disabled=sim.over||av<CFG.costRnd;
+  $("aJt").disabled=sim.over||av<CFG.jtMoney;
+  $("aTax").disabled=sim.over||sim.pol<CFG.taxPol;
+  // exchange dock
+  $("xMoney").textContent=sim.avail(); $("xPol").textContent=Math.round(sim.pol);
+  $("xMoneyBar").style.width=(100*sim.avail()/Math.max(50,sim.capital))+"%";
+  $("xPolBar").style.width=(100*sim.pol/CFG.polMax)+"%";
+  $("xJt").innerHTML=`Just-transition&nbsp; <b>${CFG.jtMoney} money → +${sim.jtPolGain()} support</b>`;
+  $("xTax").innerHTML=`Carbon tax&nbsp; <b>${CFG.taxPol} support → +${sim.taxMoneyGain()} money</b>`;
+  $("xJt").disabled=sim.over||sim.avail()<CFG.jtMoney;
+  $("xTax").disabled=sim.over||sim.pol<CFG.taxPol;
+  // the live rate, and the rot: conversions worsen as the oldest plant ages
+  const lf=sim.exchangeLockinFactor();
+  $("xPenalty").innerHTML=`Lock-in penalty <b>×${lf.toFixed(2)}</b>${lf>1.3?" — waiting is costing you":""}`;
+  $("xPenalty").style.color=lf<1.2?"var(--muted)":lf<1.5?"var(--warn)":"var(--bad)";
+  renderBlocs(); renderTips(); drawBand(); codexCheck(); updateHint(); updateRecommend();
+}
+
+/* highlight the single most actionable POLICY button (builds happen on the map) */
+function updateRecommend(){
+  document.querySelectorAll(".act").forEach(b=>b.classList.remove("recommend"));
+  if(sim.over) return;
+  const av=sim.avail(), o=sim.oldest();
+  // priority among policy levers: unblock clean via R&D → retire an aging fossil
+  let rec=null;
+  if(sim.rnd===0&&av>=CFG.costRnd) rec="aRnd";
+  else if(o&&o.age>=4&&av>=CFG.costRetireMoney&&sim.pol>=sim.retirePolCost(o)) rec="aRetire";
+  if(rec){ const el=$(rec); if(el) el.classList.add("recommend"); }
+}
+
+/* contextual hint: follows the selected tool and what you can afford */
+function updateHint(){
+  const av=sim.avail(); let t;
+  switch(world.mode){
+    case "fossil":
+      t=`Fossil is cheap (${CFG.costFossil}) and instant jobs — but every decade it stands makes it costlier to remove.`; break;
+    case "clean":
+      t=av<sim.cleanCost()
+        ?`Clean costs ${sim.cleanCost()} — out of reach right now. Fund R&D to cut the price, or grow first.`
+        :`Clean (${sim.cleanCost()}) dispatches first — every build cuts emissions immediately.`; break;
+    case "forest":
+      t=av<CFG.costForest
+        ?`A forest costs ${CFG.costForest} — you're short. It's the cheapest mitigation you have.`
+        :`Forests (${CFG.costForest}) absorb ${CFG.forestAbsorb} emissions/decade — cheap, but they take land and won't outrun fossil alone.`; break;
+    case "zoneC":
+      t="Cities grow your economy — and your energy demand. Build power to feed them."; break;
+    default:
+      t="Zone energy land, then place plants on it. Drag pans · wheel zooms.";
+  }
+  $("hint").textContent=t;
+}
+sim.onChanged.push(render);
+
+/* ---------------- planetary tipping points: tracker + banner ---------------- */
+const TIP_SCALE=500;  // common cum-emissions axis for the tracker bars
+const tipRowsEl=$("tipRows");
+for(const td of TIPS){
+  const row=document.createElement("div");
+  row.className="tiprow";
+  row.title=`${td.name}: estimated risk range ${td.min}–${td.max} cumulative emissions. The true threshold is hidden inside the range.`;
+  const p1=(td.min/TIP_SCALE*100).toFixed(1), p2=(td.max/TIP_SCALE*100).toFixed(1);
+  row.innerHTML=`<span class="nm">${td.name}</span>`+
+    `<span class="bar" style="background:linear-gradient(90deg,#0a0f16 0 ${p1}%,rgba(255,140,70,.30) ${p1}% ${p2}%,#0a0f16 ${p2}%)"><i id="tipcur_${td.id}"></i></span>`+
+    `<span class="wd" id="tipst_${td.id}">stable</span>`;
+  tipRowsEl.appendChild(row);
+}
+function renderTips(){
+  for(const td of TIPS){
+    const s=sim.tips[td.id];
+    $("tipcur_"+td.id).style.left=Math.min(99,(sim.cum/TIP_SCALE*100)).toFixed(1)+"%";
+    const el=$("tipst_"+td.id);
+    if(s.hit){ el.textContent="CROSSED"; el.className="wd crossed"; el.style.color=""; }
+    else if(sim.cum>td.min){ el.textContent="destabilizing"; el.className="wd destab"; el.style.color=""; }
+    else{ el.textContent="stable"; el.className="wd"; el.style.color="var(--dim)"; }
+  }
+}
+const TIP_FX={
+  permafrost:{title:"TIPPING POINT — PERMAFROST THAW",
+    sub:"Frozen ground is releasing ancient carbon: +4 emissions every decade, permanently, beyond any policy's reach."},
+  wais:{title:"TIPPING POINT — WEST ANTARCTIC ICE SHEET",
+    sub:"Ice loss is now self-sustaining: +0.04° per decade of momentum. The sea is claiming your unused coastal land."},
+  amoc:{title:"TIPPING POINT — ATLANTIC CIRCULATION FAILING",
+    sub:"Weather chaos drains 1.5 political support every decade. Governing itself just got harder."}};
+let bannerTimer=null;
+sim.onTipped.push(id=>{
+  const fx=TIP_FX[id], b=$("tipBanner");
+  b.querySelector(".tb-title").textContent=fx.title;
+  b.querySelector(".tb-sub").textContent=fx.sub;
+  b.classList.add("show");
+  clock.setPaused(true);                 // a planetary threshold deserves a pause
+  clearTimeout(bannerTimer);
+  bannerTimer=setTimeout(()=>b.classList.remove("show"),7000);
+  if(id==="wais") world.flood();
+});
+
+/* ---------------- the coalition ---------------- */
+const BLOCS=[
+  ["workers","Fossil workers","Their livelihoods are the fossil plants. Retirements scare them; the just-transition fund is how you bring them through the change."],
+  ["greens","Green movement","Watches the thermometer and your build choices. Heat and smokestacks cost you here; clean capacity wins them back."],
+  ["business","Business","Cares about growth. When capacity falls short of demand, growth throttles and they sour. A fresh carbon tax stings too."],
+  ["households","Households","Want reliable energy and a livable climate. Disasters past +1.5° hit them first — and they vote."]];
+let jtGlow=0, taxSting=0, blocTurn=-1;
+sim.onExchanged.push((m,p)=>{ if(m<0) jtGlow=1; else taxSting=1; });
+const blocsEl=$("blocs");
+for(const [id,nm,tip] of BLOCS){
+  const div=document.createElement("div"); div.className="bloc"; div.title=tip;
+  div.innerHTML=`<span class="nm">${nm}</span><span class="bar"><i id="bar_${id}"></i></span><span class="wd" id="wd_${id}"></span>`;
+  blocsEl.appendChild(div);
+}
+function renderBlocs(){
+  if(sim.turn!==blocTurn){ jtGlow*=.5; taxSting*=.5; blocTurn=sim.turn; }
+  const d=sim.demand(), cap=sim.fcap()+sim.ccap, used=Math.min(cap,d);
+  const fshare=(used-Math.min(sim.ccap,used))/Math.max(1,used);
+  const adequacy=Math.min(1,cap/d);
+  const h=heat01();
+  setBloc("workers",clamp01(.15+.85*fshare+.30*jtGlow));
+  setBloc("greens",clamp01(1-.9*h-.35*fshare+.25*(1-fshare)+.12*Math.min(1,sim.forests/5)));
+  setBloc("business",clamp01(adequacy-.20*taxSting));
+  setBloc("households",clamp01(.6*adequacy+.4*(1-h)-.10*taxSting));
+}
+function clamp01(v){ return Math.max(0,Math.min(1,v)); }
+function setBloc(id,m){
+  const bar=$("bar_"+id), wd=$("wd_"+id);
+  bar.style.width=(m*100)+"%";
+  const col=m>.55?mix([209,168,79],[77,209,141],(m-.55)/.45):mix([255,93,93],[209,168,79],m/.55);
+  bar.style.background=`rgb(${col})`; wd.style.color=`rgb(${col})`;
+  wd.textContent=m>.7?"behind you":m>.4?"uneasy":"angry";
+}
+function mix(a,b,t){ t=clamp01(t); return a.map((v,i)=>Math.round(v+(b[i]-v)*t)); }
+
+/* ---------------- projection band ---------------- */
+const bandCv=$("bandCanvas"), bctx=bandCv.getContext("2d");
+let history=[];
+function drawBand(){
+  if(history.length&&sim.turn<history[history.length-1][0]) history=[];
+  if(!history.length||sim.turn>history[history.length-1][0]) history.push([sim.turn,sim.temp]);
+  else history[history.length-1]=[sim.turn,sim.temp];
+
+  const w=bandCv.clientWidth||380, h2=128, dpr=window.devicePixelRatio||1;
+  bandCv.width=w*dpr; bandCv.height=h2*dpr; bctx.setTransform(dpr,0,0,dpr,0,0);
+  bctx.clearRect(0,0,w,h2);
+  const padL=34,padR=8,padT=10,padB=16, iw=w-padL-padR, ih=h2-padT-padB;
+  const proj=sim.projectForward();
+  let tMin=CFG.temp0-.05, tMax=CFG.tempLimit+.25;
+  for(const e of proj) tMax=Math.max(tMax,e.hi+.05);
+  const X=t=>padL+iw*Math.min(1,t/CFG.maxTurns);
+  const Y=v=>padT+ih*(1-clamp01((v-tMin)/(tMax-tMin)));
+  // frame + the unmissable +2.0° line
+  bctx.strokeStyle="#1a2430"; bctx.strokeRect(padL,padT,iw,ih);
+  const yl=Y(CFG.tempLimit);
+  bctx.fillStyle="rgba(255,93,93,.06)"; bctx.fillRect(padL,padT,iw,Math.max(0,yl-padT)); // danger zone above
+  bctx.setLineDash([5,4]); bctx.strokeStyle="rgba(255,93,93,.95)"; bctx.lineWidth=1.8;
+  bctx.beginPath(); bctx.moveTo(padL,yl); bctx.lineTo(padL+iw,yl); bctx.stroke();
+  bctx.setLineDash([]); bctx.lineWidth=1;
+  bctx.font="10px sans-serif";
+  bctx.fillStyle="rgba(255,93,93,.95)";
+  bctx.fillText(`+${CFG.tempLimit.toFixed(1)}°`,2,yl+3);
+  bctx.fillText("limit",padL+iw-26,yl-4);
+  // band
+  if(proj.length){
+    bctx.beginPath(); bctx.moveTo(X(sim.turn),Y(sim.temp));
+    proj.forEach((e,i)=>bctx.lineTo(X(sim.turn+i+1),Y(e.hi)));
+    for(let i=proj.length-1;i>=0;i--) bctx.lineTo(X(sim.turn+i+1),Y(e2(proj,i).lo));
+    bctx.closePath(); bctx.fillStyle="rgba(255,115,77,.16)"; bctx.fill();
+    bctx.strokeStyle="rgba(255,115,77,.55)"; bctx.beginPath(); bctx.moveTo(X(sim.turn),Y(sim.temp));
+    proj.forEach((e,i)=>bctx.lineTo(X(sim.turn+i+1),Y(e.hi))); bctx.stroke();
+    bctx.strokeStyle="rgba(255,166,89,.55)"; bctx.beginPath(); bctx.moveTo(X(sim.turn),Y(sim.temp));
+    proj.forEach((e,i)=>bctx.lineTo(X(sim.turn+i+1),Y(e.lo))); bctx.stroke();
+    // name the thing the band means
+    if(proj.length>2){
+      const mi=Math.floor(proj.length/2), mx=X(sim.turn+mi+1);
+      const my=Y((proj[mi].hi+proj[mi].lo)/2);
+      bctx.fillStyle="rgba(255,160,120,.85)"; bctx.textAlign="center";
+      bctx.fillText("locked-in risk if policy stops",Math.max(padL+86,Math.min(padL+iw-86,mx)),Math.min(padT+ih-4,my+3));
+      bctx.textAlign="left";
+    }
+  }
+  // history
+  if(history.length>1){
+    bctx.strokeStyle="#ecf1f5"; bctx.lineWidth=1.6; bctx.beginPath();
+    history.forEach(([t,v],i)=>i?bctx.lineTo(X(t),Y(v)):bctx.moveTo(X(t),Y(v)));
+    bctx.stroke(); bctx.lineWidth=1;
+  }
+  // the current point, ringed so it can't be missed
+  const nx=X(sim.turn), ny=Y(sim.temp);
+  bctx.strokeStyle="rgba(236,241,245,.5)"; bctx.beginPath(); bctx.arc(nx,ny,5.5,0,7); bctx.stroke();
+  bctx.fillStyle="#ecf1f5"; bctx.beginPath(); bctx.arc(nx,ny,2.8,0,7); bctx.fill();
+  bctx.fillText("now",Math.min(nx+7,padL+iw-24),ny-6);
+  bctx.fillStyle="#54616e";
+  bctx.fillText(CFG.year0,padL,h2-3);
+  bctx.fillText(CFG.year0+CFG.maxTurns*CFG.yearsPerTurn,padL+iw-26,h2-3);
+}
+function e2(arr,i){ return arr[i]; }
+
+/* ---------------- log ---------------- */
+const logEl=$("log");
+sim.onLog.push((t,k)=>{
+  const div=document.createElement("div"); div.className=k; div.textContent=t;
+  logEl.prepend(div);
+  while(logEl.children.length>60) logEl.lastChild.remove();
+});
+
+/* ---------------- exchange packets ---------------- */
+sim.onExchanged.push((m,p)=>{
+  const ch=$("channel"), toSupport=m<0;
+  // three staggered packets so the flow reads as a stream, not a blip
+  for(let k=0;k<3;k++){
+    setTimeout(()=>{
+      const pk=document.createElement("div");
+      pk.className="packet";
+      const col=toSupport?"#67d19e":"#d1a84f";
+      pk.style.background=col; pk.style.color=col;     // currentColor feeds the glow
+      pk.style.left=toSupport?"0px":(ch.clientWidth-12)+"px";
+      ch.appendChild(pk);
+      requestAnimationFrame(()=>{ pk.style.left=toSupport?(ch.clientWidth-12)+"px":"0px"; });
+      setTimeout(()=>pk.remove(),700);
+    },k*110);
+  }
+  // the receiving meter visibly swells
+  const recv=$(toSupport?"xPol":"xMoney");
+  recv.classList.remove("bump"); void recv.offsetWidth; recv.classList.add("bump");
+});
+
+/* ---------------- science codex ---------------- */
+const CODEX=[
+ {t:"Cumulative carbon",hint:"available from the start",test:()=>true,
+  g:"Temperature here tracks your RUNNING TOTAL of emissions, not this decade's rate. Slowing down doesn't cool anything — only stopping does. The carbon you release this decade stays in the sky for centuries, so each high-emission decade permanently raises the floor under every decade that follows.",
+  w:"Warming scales almost linearly with cumulative CO₂ — roughly 0.45°C per 1,000 Gt CO₂, a quantity called the TCRE (IPCC AR6, 2021). This is why scientists describe a fixed carbon BUDGET rather than a safe emission rate: about 2,400 Gt CO₂ emitted since 1850 has produced ~1.2°C. \"Net zero eventually\" isn't enough, because the area under the curve — not the height of it — is what heats the planet."},
+ {t:"Tipping points",hint:"unlocks when the first threshold is crossed",test:()=>sim.anyTipped(),
+  g:"Three of the planet's systems in this game have hidden thresholds: permafrost (somewhere in 180–260 cumulative), the West Antarctic ice sheet (280–380), and the Atlantic circulation (360–460). The tracker shows the published range; nobody — including you — knows the exact line inside it. You learn where it was by crossing it, and crossing is permanent.",
+  w:"Armstrong McKay et al. (Science, 2022) catalogued 16 climate tipping elements and concluded several enter their risk zones between 1.5° and 2°C. The defining features are exactly what you're experiencing: thresholds that are real but uncertain, changes that are self-sustaining once started, and no way back on human timescales. This is why 'keeping distance' beats 'optimizing to the edge'."},
+ {t:"Permafrost carbon",hint:"unlocks if the permafrost thaws",test:()=>sim.tips.permafrost.hit,
+  g:"Crossed. Thawing ground now adds +4 emissions every decade on top of whatever you burn — and no policy of yours can retire it. Your forests can't keep up with it either: the budget arithmetic just got permanently worse, on its own.",
+  w:"Northern permafrost stores roughly twice as much carbon as the entire atmosphere (~1,400–1,600 Gt). As it thaws, microbes digest ancient organic matter and exhale it as CO₂ and methane. Estimates run to tens or hundreds of Gt this century. The crucial point: this is a FEEDBACK, not a source — there is no off switch, no owner, no one to negotiate with (Schuur et al. 2015; IPCC AR6)."},
+ {t:"Ice sheets & sea level",hint:"unlocks if the ice sheet destabilizes",test:()=>sim.tips.wais.hit,
+  g:"Crossed. Warming now gains +0.04° per decade of momentum all by itself, and the sea has taken your unused coastal land — look at the map's edges. Nothing you do for the rest of this game reverses it.",
+  w:"The West Antarctic ice sheet rests on bedrock BELOW sea level, so warm ocean water undercuts it from beneath. Past a threshold, retreat becomes self-sustaining — 'marine ice sheet instability' — committing 3–5 metres of sea-level rise over coming centuries regardless of later emissions cuts. Paleoclimate evidence shows it has collapsed before in warmer epochs (Armstrong McKay et al. 2022; IPCC AR6)."},
+ {t:"The Atlantic circulation",hint:"unlocks if the AMOC fails",test:()=>sim.tips.amoc.hit,
+  g:"Crossed. The ocean current that stabilized your weather is failing, and the chaos — floods, crop shocks, brutal winters beside heat waves — now drains 1.5 political support every decade. Notice what that means: the disaster attacks your CAPACITY TO GOVERN, not just your thermometer.",
+  w:"The Atlantic Meridional Overturning Circulation carries heat northward on a global conveyor; Greenland meltwater is freshening and weakening it. Collapse would shift tropical monsoons, chill northwest Europe while the planet warms, and disrupt agriculture on several continents at once. Recent studies (Ditlevsen & Ditlevsen 2023; van Westen et al. 2024) argue the risk this century is higher than once thought — and deeply uncertain."},
+ {t:"Carbon lock-in",hint:"unlocks as your plants entrench",test:()=>didRetire||(sim.oldest()&&sim.oldest().age>=3),
+  g:"Retiring a fossil plant costs political capital that GROWS with its age — base × (1 + 0.5 × age). The plant you built cheap in 2025 is the one you can't afford to kill in 2085. The money↔support exchange rates rot for the same reason: the constituency defending fossil power grows with every decade you let it.",
+  w:"Infrastructure built today commits emissions for decades: a coal plant runs 40–60 years, and the jobs, towns, pension funds and balance sheets around it all defend it. Tong et al. (Nature, 2019) calculated that committed emissions from infrastructure ALREADY BUILT roughly exhaust the 1.5°C budget — before a single new plant."},
+ {t:"Learning curves",hint:"unlocks with your first R&D investment",test:()=>sim.rnd>0,
+  g:"Each R&D investment permanently cuts clean-plant cost by 15%. It pays nothing this decade — it makes the LATE transition affordable. Skipping it early is the classic losing line in this game: by the time you're desperate for clean power, you can't afford it.",
+  w:"Wright's law: costs fall a roughly fixed percentage per doubling of cumulative production. Solar modules fell ~90% in the 2010s (~20% per doubling); wind and batteries followed similar curves (Way et al. 2022). Today's cheap clean energy was purchased by whoever deployed it while it was still expensive — mostly German and Chinese policy choices made decades ago."},
+ {t:"Just transition",hint:"unlocks the first time you fund one",test:()=>didJt,
+  g:"Money becomes support — you're compensating the people your transition displaces. Note the rate worsens as lock-in deepens: the longer you wait, the more forgiveness costs. Watch the lock-in penalty in the exchange dock climb.",
+  w:"Germany's Ruhr coal phase-out and Spain's 2018 coal accords paired closures with retraining, pensions and regional investment — and kept the politics survivable. Transitions that skip this step tend to get reversed at the next election. The lesson: decarbonization is a labor policy and a regional policy wearing climate policy's clothes."},
+ {t:"Carbon pricing",hint:"unlocks the first time you push a tax",test:()=>didTax,
+  g:"Support becomes money. It's the only action that RAISES revenue — and it spends the same political capital that keeps you in office. Use it while you're popular; it stops working when you most need it.",
+  w:"Over 70 carbon-pricing schemes operate worldwide (EU ETS, Canada, California...). They demonstrably cut emissions — and their visible costs burn political capital, as France's gilets jaunes uprising over a fuel tax showed in 2018. Schemes that visibly recycle revenue back to citizens (like Canada's rebates) survive elections better than those that don't."},
+ {t:"Overshoot",hint:"unlocks past +1.5°",test:()=>sim.temp>=1.5,
+  g:"The name of the game: sailing past a safe level while telling yourself you'll come back down later. In here, \"later\" is when lock-in is deepest, exchange rates are worst — and the tipping points you crossed on the way up don't uncross on the way down.",
+  w:"Most modelled 1.5°C pathways now ASSUME overshoot: exceed the target, then drag temperature back with decades of net-negative emissions from technologies that mostly don't exist at scale yet. The gamble is asymmetric — the overshoot is certain, the return is hypothetical, and tipping points crossed in between are permanent (IPCC SR1.5; AR6 WGIII)."}];
+CODEX.forEach(e=>{ e.unlocked=false; e.seen=false; });
+let didRetire=false, didJt=false, didTax=false, prevPlants=sim.plants.length, codexSel=0;
+sim.onExchanged.push((m,p)=>{ if(m<0) didJt=true; else didTax=true; });
+function codexCheck(){
+  if(sim.plants.length<prevPlants) didRetire=true;
+  prevPlants=sim.plants.length;
+  let dirty=false;
+  for(const e of CODEX) if(!e.unlocked&&e.test()){ e.unlocked=true; dirty=true; }
+  const unseen=CODEX.filter(e=>e.unlocked&&!e.seen).length;
+  $("codexBtn").innerHTML="📖 Codex"+(unseen?` <span class="badge"></span>`:"");
+  if(dirty&&!$("codex").classList.contains("hidden")) codexRenderList();
+}
+function codexRenderList(){
+  const list=$("codexList"); list.innerHTML="";
+  CODEX.forEach((e,i)=>{
+    const div=document.createElement("div");
+    if(e.unlocked){
+      div.className="item"+(i===codexSel?" sel":"");
+      div.textContent=e.t+(e.seen?"":"  ●");
+      div.onclick=()=>{ codexSel=i; e.seen=true; codexRenderList(); codexShow(); codexCheck(); };
+    } else {
+      div.className="item locked"; div.textContent=`??? (${e.hint})`;
+    }
+    list.appendChild(div);
+  });
+  codexShow();
+}
+function codexShow(){
+  const e=CODEX[codexSel];
+  if(!e||!e.unlocked){ $("codexText").innerHTML=""; return; }
+  e.seen=true;
+  $("codexText").innerHTML=`<h2>${e.t}</h2><div class="tag g">IN THE GAME</div><p>${e.g}</p><div class="tag w">IN THE REAL WORLD</div><p>${e.w}</p>`;
+}
+$("codexBtn").onclick=()=>{ // open the newest unlocked entry
+  for(let i=CODEX.length-1;i>=0;i--) if(CODEX[i].unlocked){ codexSel=i; break; }
+  $("codex").classList.remove("hidden"); clock.setPaused(true);
+  codexRenderList(); codexCheck();
+};
+$("codexClose").onclick=()=>$("codex").classList.add("hidden");
+
+/* ---------------- overlays ---------------- */
+/* ---------------- advisor prompt queue ---------------- */
+// ADVISOR_PROMPTS are re-evaluated at runtime so CFG values are always live.
+// Defined as a factory so reset() can produce fresh copies.
+function makeAdvisorPrompts(){ return [
+  {turn:0, delay:5000,
+   text:`You start with ${Math.round(CFG.gdp0*CFG.capRate)} capital. Energy demand is ${Math.round(40+CFG.gdp0*0.4)} — your ${CFG.fossilPlants0} fossil plants (${CFG.fossilPlants0*CFG.plantSize} capacity) cover it. The budget bar bottom-left shows what you can spend this decade.`},
+  {turn:0, delay:22000,
+   text:`Clean plants cost ${CFG.costCleanBase} — more than this decade's entire budget. Fund R&D (${CFG.costRnd}) once you can afford it; each level cuts the price by 15% permanently.`},
+  {turn:1, delay:3000,
+   text:`Each fossil plant is cheap to build but the retirement cost grows every decade it runs. The bind: the cheap energy that grows your economy now is the political fight you'll lose later.`},
+];}
+let advisorQueue=makeAdvisorPrompts(), advisorTimer=null;
+function showAdvisor(text){
+  $("advisorText").textContent=text;
+  $("advisor").classList.remove("hidden");
+}
+function scheduleNextAdvisor(){
+  if(!advisorQueue.length) return;
+  const next=advisorQueue[0];
+  if(sim.turn>next.turn) { advisorQueue.shift(); scheduleNextAdvisor(); return; }
+  if(sim.turn===next.turn){
+    advisorTimer=setTimeout(()=>{ advisorQueue.shift(); showAdvisor(next.text); scheduleNextAdvisor(); }, next.delay);
+  }
+}
+$("advisorDismiss").onclick=()=>{ $("advisor").classList.add("hidden"); scheduleNextAdvisor(); };
+
+$("introBtn").onclick=()=>{
+  $("intro").classList.add("hidden"); clock.setPaused(false);
+  sim.log("Year 2025. Fossil power is cheap and popular; clean power is out of reach. Grow first — but every plant you raise today you will answer for.","hi");
+  scheduleNextAdvisor();
+};
+sim.onEnded.push((endTitle,endBody)=>{
+  $("endTitle").textContent=endTitle; $("endBody").textContent=endBody;
+  const tipsHit=TIPS.filter(td=>sim.tips[td.id].hit);
+  const gdpFrac=Math.min(1,sim.gdp/CFG.target);
+  const tempFrac=1-Math.max(0,Math.min(1,(sim.temp-CFG.temp0)/(CFG.tempLimit-CFG.temp0)));
+  const tipFrac=(TIPS.length-tipsHit.length)/TIPS.length;
+  const polFrac=Math.max(0,sim.pol/CFG.polMax);
+  const fossilFrac=1-Math.min(1,sim.plants.length/CFG.fossilPlants0);
+
+  // grading rubric — five dimensions, weighted
+  const score=gdpFrac*28 + tempFrac*28 + tipFrac*20 + polFrac*12 + fossilFrac*12;
+
+  let letter,gradeColor,gradeReason;
+  if(sim.over&&sim.pol<0){
+    letter="F"; gradeColor="var(--bad)";
+    gradeReason="You were voted out before the transition could mature. Political capital ran dry — likely from climate damage, retiring too slowly, or taxing without compensating workers.";
+  } else if(sim.over&&sim.temp>=CFG.tempLimit){
+    letter="F"; gradeColor="var(--bad)";
+    gradeReason="Climate collapse. Cumulative emissions crossed the +2.0° threshold. The planet's own feedbacks finished the job.";
+  } else if(score>=86){
+    letter="A"; gradeColor="var(--good)";
+    gradeReason="Prosperous managed transition. Economy tripled, warming held well below 2°, few fossil plants left, tipping points largely avoided.";
+  } else if(score>=72){
+    letter="B"; gradeColor="#7fd4a0";
+    gradeReason="Successful but late transition. The economy grew and warming was controlled, though some damage or lock-in accumulated along the way.";
+  } else if(score>=55){
+    letter="C"; gradeColor="var(--warn)";
+    gradeReason="Stabilized with meaningful damage. Climate or economy targets were partial; tipping points or stranded assets left a real scar.";
+  } else if(score>=38){
+    letter="D"; gradeColor="#e89a3f";
+    gradeReason="Barely stabilized under high costs. Tipping points hit, fossil lock-in lingered, or economic growth stalled — probably all three.";
+  } else {
+    letter="F"; gradeColor="var(--bad)";
+    gradeReason="Failure on most dimensions. The game ended in collapse, or the transition never happened before time ran out.";
+  }
+
+  $("endGrade").textContent=letter; $("endGrade").style.color=gradeColor;
+  $("endGradeReason").textContent=gradeReason;
+
+  $("endStats").innerHTML=
+    `<div><div class="cap">Final GDP</div><div class="val">${Math.round(sim.gdp)} / ${CFG.target}</div></div>`+
+    `<div><div class="cap">Peak warming</div><div class="val">+${sim.temp.toFixed(2)}°</div></div>`+
+    `<div><div class="cap">Tipping points</div><div class="val">${tipsHit.length} / ${TIPS.length}</div></div>`+
+    `<div><div class="cap">Fossil plants left</div><div class="val">${sim.plants.length}</div></div>`+
+    `<div><div class="cap">Forests</div><div class="val">${sim.forests}</div></div>`+
+    `<div><div class="cap">Support remaining</div><div class="val">${Math.max(0,Math.round(sim.pol))}</div></div>`;
+
+  // debrief: one good, one bad, one lesson
+  const wells=[];
+  const hurts=[];
+  if(gdpFrac>=0.9) wells.push("You grew the economy close to the target — energy security drove growth.");
+  else if(sim.rnd>0) wells.push("You invested in clean R&D, which lowers the cost of every future clean plant.");
+  else if(sim.forests>2) wells.push("You planted forests early — cheap mitigation that softened your emissions curve.");
+  else if(tipsHit.length===0) wells.push("You crossed no tipping points — you kept the planet's feedbacks dormant.");
+  else wells.push("You kept playing through difficult constraints — that's often harder than it looks.");
+
+  if(tipsHit.length>0) hurts.push(`${tipsHit.length} tipping point${tipsHit.length>1?"s":""} crossed (${tipsHit.map(td=>td.name).join(", ")}). Each one added permanent costs you couldn't retire.`);
+  else if(sim.plants.length>=CFG.fossilPlants0) hurts.push("You didn't retire any fossil plants. The lock-in compounded — retirement costs grew with every decade you delayed.");
+  else if(gdpFrac<0.6) hurts.push("The economy stalled. Insufficient energy capacity slows growth — and slow growth limits your future budget for clean investment.");
+  else if(sim.pol<5) hurts.push("Political capital ran dangerously low. Climate damage and stagnation both drain support faster than regen can recover it.");
+  else hurts.push("The transition took longer than optimal. Earlier clean investment or R&D would have reduced cumulative emissions.");
+
+  const lessons=[
+    "Emissions are cumulative — slowing down doesn't cool the planet, only stopping does. Every high-emission decade raises the floor permanently.",
+    "Fossil lock-in is political, not just physical. The longer a plant runs, the more people depend on it, and the more it costs to shut down.",
+    "Clean power's high upfront cost is a one-time investment; R&D turns that cost curve downward for every plant after it.",
+    "Tipping points don't announce themselves. The only way to know where the threshold was is to cross it — which is an argument for distance, not precision.",
+    "Political capital is the hidden constraint. You can't decarbonize a society you can't govern. Climate damage and economic stagnation both erode it."
+  ];
+  const lessonIdx=tipsHit.length>0?3:sim.plants.length>3?1:sim.rnd===0?2:4;
+
+  $("debriefList").innerHTML=
+    `<div class="debrief-row"><span class="debrief-icon">✓</span><span><b style="color:var(--good)">What went well:</b> ${wells[0]}</span></div>`+
+    `<div class="debrief-row"><span class="debrief-icon">↓</span><span><b style="color:var(--warn)">What hurt:</b> ${hurts[0]}</span></div>`+
+    `<div class="debrief-row"><span class="debrief-icon">→</span><span><b style="color:var(--sky-link)">Lesson:</b> ${lessons[lessonIdx]}</span></div>`;
+
+  // shareable result badge
+  const outcome=outcomeLabel();
+  const gradeHex={A:"#3fd2a4",B:"#7fd4a0",C:"#ffd166",D:"#e89a3f",F:"#ff5d5d"}[letter]||"#e89a3f";
+  endData={letter:letter, outcome:outcome, hex:gradeHex, tips:tipsHit.length};
+  $("resultBadge").innerHTML=
+    `<div class="rbTop">`+
+      `<div><div class="rbBrand">OVERSHOOT</div><div class="rbOutcome" style="color:${gradeHex}">${outcome}</div></div>`+
+      `<div><div class="rbGradeCap">GRADE</div><div class="rbGrade" style="color:${gradeHex}">${letter}</div></div>`+
+    `</div>`+
+    `<div class="rbStats">`+
+      `<div class="c"><div class="cap">GDP</div><div class="v">${Math.round(sim.gdp)}/${CFG.target}</div></div>`+
+      `<div class="c"><div class="cap">Peak warming</div><div class="v">+${sim.temp.toFixed(2)}°</div></div>`+
+      `<div class="c"><div class="cap">Tipping</div><div class="v">${tipsHit.length}/${TIPS.length}</div></div>`+
+      `<div class="c"><div class="cap">Fossil left</div><div class="v">${sim.plants.length}</div></div>`+
+      `<div class="c"><div class="cap">Forests</div><div class="v">${sim.forests}</div></div>`+
+    `</div>`+
+    `<div class="rbLine">${resultLine(letter)}</div>`+
+    `<div class="rbFoot">overshoot.greenplace.earth</div>`;
+
+  $("shareText").value=buildShareText(letter);
+  $("end").classList.remove("hidden");
+  stopHum();
+});
+$("endBtn").onclick=()=>{
+  $("end").classList.add("hidden"); logEl.innerHTML=""; history=[];
+  clearTimeout(advisorTimer); advisorQueue=makeAdvisorPrompts(); $("advisor").classList.add("hidden");
+  sim.reset(); clock.accum=0; clock.setPaused(true);
+  $("landing").classList.remove("hidden");
+};
+
+/* ---------------- controls ---------------- */
+playBtn.onclick=()=>clock.setPaused(!clock.paused);
+document.querySelectorAll(".spd").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".spd").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); clock.speed=+b.dataset.s;
+});
+$("autoBtn").onclick=()=>{
+  clock.autoPause=!clock.autoPause;
+  $("autoBtn").classList.toggle("on",clock.autoPause);
+  $("autoBtn").textContent="Auto-pause: "+(clock.autoPause?"on":"off");
+};
+$("advanceBtn").onclick=()=>{ clock.beat(); progressBar.style.width="0%"; };
+document.querySelectorAll(".tool").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".tool").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on"); world.mode=b.dataset.m; updateHint();
+});
+$("aRetire").onclick=()=>sim.retireOldest();
+$("aRnd").onclick=()=>sim.fundRnd();
+$("aJt").onclick=()=>sim.justTransition();
+$("aTax").onclick=()=>sim.carbonTax();
+$("xJt").onclick=()=>sim.justTransition();
+$("xTax").onclick=()=>sim.carbonTax();
+
+/* map input: click acts, drag pans, wheel zooms */
+let dragging=false, moved=0, lx=0, ly=0;
+cv.addEventListener("mousedown",e=>{ dragging=true; moved=0; lx=e.clientX; ly=e.clientY; });
+addEventListener("mousemove",e=>{
+  if(dragging){
+    const dx=e.clientX-lx, dy=e.clientY-ly; moved+=Math.abs(dx)+Math.abs(dy);
+    cam.x-=dx/cam.zoom; cam.y-=dy/cam.zoom; lx=e.clientX; ly=e.clientY;
+  }
+  hoverTile=pickTile(e.clientX,e.clientY);
+});
+addEventListener("mouseup",e=>{
+  if(dragging&&moved<6) world.apply(pickTile(e.clientX,e.clientY));
+  dragging=false;
+});
+cv.addEventListener("wheel",e=>{
+  e.preventDefault();
+  cam.zoom=Math.max(.45,Math.min(2.4,cam.zoom*(e.deltaY<0?1.1:1/1.1)));
+},{passive:false});
+cv.addEventListener("contextmenu",e=>e.preventDefault());
+
+/* ============================================================
+   SOUND — Web Audio API only, no files, no external libs.
+   AudioContext is created lazily on first user interaction
+   so browsers allow it.
+   ============================================================ */
+let AC=null, muted=false, humNode=null, humGain=null;
+function getAC(){
+  if(!AC){ AC=new(window.AudioContext||window.webkitAudioContext)(); }
+  if(AC.state==="suspended") AC.resume();
+  return AC;
+}
+function beep(freq,type,vol,dur,fadeStart){
+  if(muted) return;
+  try{
+    const ac=getAC(), g=ac.createGain(), o=ac.createOscillator();
+    o.type=type; o.frequency.value=freq;
+    g.gain.setValueAtTime(vol,ac.currentTime);
+    g.gain.linearRampToValueAtTime(0,ac.currentTime+(fadeStart||dur));
+    o.connect(g); g.connect(ac.destination);
+    o.start(); o.stop(ac.currentTime+dur);
+  }catch(e){}
+}
+function sndClick(){ beep(440,"sine",.04,.06); }
+function sndBuild(good){ beep(good?660:330,good?"triangle":"sawtooth",.045,.12,.09); }
+function sndTip(){
+  if(muted) return;
+  try{
+    const ac=getAC();
+    // deep rumble via two detuned oscillators
+    [55,58].forEach((f,i)=>{
+      const g=ac.createGain(), o=ac.createOscillator();
+      o.type="sawtooth"; o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,ac.currentTime);
+      g.gain.linearRampToValueAtTime(.12,ac.currentTime+.3);
+      g.gain.linearRampToValueAtTime(0,ac.currentTime+2.8);
+      o.connect(g); g.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime+3);
+    });
+    // high crack on top
+    beep(1200,"square",.03,.08);
+  }catch(e){}
+}
+function startHum(){
+  if(humNode||muted) return;
+  try{
+    const ac=getAC();
+    humGain=ac.createGain(); humGain.gain.value=0;
+    humNode=ac.createOscillator();
+    humNode.type="sine"; humNode.frequency.value=82;
+    const hum2=ac.createOscillator(); hum2.type="sine"; hum2.frequency.value=164;
+    const g2=ac.createGain(); g2.gain.value=.4;
+    hum2.connect(g2); g2.connect(humGain);
+    humNode.connect(humGain); humGain.connect(ac.destination);
+    humNode.start(); hum2.start();
+    humGain.gain.linearRampToValueAtTime(.018,ac.currentTime+3);
+  }catch(e){}
+}
+function stopHum(){
+  if(!humNode) return;
+  try{ humGain.gain.linearRampToValueAtTime(0,AC.currentTime+1); }catch(e){}
+  setTimeout(()=>{ try{humNode.stop();humNode=null;humGain=null;}catch(e){} },1200);
+}
+$("muteBtn").onclick=()=>{
+  muted=!muted;
+  $("muteBtn").textContent=muted?"🔇":"🔊";
+  if(muted) stopHum(); else if(!clock.paused&&!sim.over) startHum();
+  sndClick();
+};
+
+// hook sounds onto actions
+const _buildFossil=sim.buildFossil.bind(sim);
+sim.buildFossil=()=>{ const r=_buildFossil(); if(r) sndBuild(false); return r; };
+const _buildClean=sim.buildClean.bind(sim);
+sim.buildClean=()=>{ const r=_buildClean(); if(r) sndBuild(true); return r; };
+const _buildForest=sim.buildForest.bind(sim);
+sim.buildForest=()=>{ const r=_buildForest(); if(r) sndBuild(true); return r; };
+sim.onTipped.push(()=>sndTip());
+
+// click sound on all buttons
+document.querySelectorAll("button").forEach(b=>{
+  if(b.id!=="muteBtn") b.addEventListener("click",()=>sndClick(),{passive:true});
+});
+
+/* ---------------- landing page + about ---------------- */
+$("landPlay").onclick=()=>{
+  getAC();   // unlock audio on first interaction
+  $("landing").classList.add("hidden");
+  $("intro").classList.remove("hidden");
+};
+$("landAbout").onclick=()=>{
+  getAC();
+  $("landing").classList.add("hidden");
+  $("about").classList.remove("hidden");
+};
+$("aboutClose").onclick=()=>{
+  $("about").classList.add("hidden");
+  $("landing").classList.remove("hidden");
+};
+
+/* ---------------- clock hum lifecycle ---------------- */
+const _clockSetPaused=clock.setPaused.bind(clock);
+clock.setPaused=function(p){
+  _clockSetPaused(p);
+  if(!p&&!sim.over) startHum(); else stopHum();
+};
+
+/* ---------------- share / copy result ---------------- */
+let endData=null;
+function outcomeLabel(){
+  if(sim.over&&sim.pol<0) return "Voted Out";
+  if(sim.over&&sim.temp>=CFG.tempLimit) return "Collapse";
+  return sim.gdp>=CFG.target?"Stabilized":"Stagnation";
+}
+function resultLine(letter){
+  const o=outcomeLabel(), th=TIPS.filter(td=>sim.tips[td.id].hit).length;
+  const verb={"Stabilized":"stabilized","Collapse":"collapsed into","Stagnation":"stalled in","Voted Out":"got voted out of"}[o];
+  const tipClause=th?`but crossed ${th}/${TIPS.length} tipping points`:`with no tipping points crossed`;
+  return `I ${verb} Overshoot at +${sim.temp.toFixed(2)}°C with Grade ${letter} — ${tipClause}.`;
+}
+function buildShareText(letter){
+  return `${resultLine(letter)} Play: overshoot.greenplace.earth`;
+}
+$("copyBtn").onclick=()=>{
+  const txt=$("shareText").value;
+  navigator.clipboard?.writeText(txt).then(()=>{
+    $("copyOk").style.opacity=1;
+    setTimeout(()=>$("copyOk").style.opacity=0,2000);
+  }).catch(()=>{ $("shareText").select(); });
+};
+
+/* draw the result badge to a PNG the player can screenshot/share */
+function downloadBadge(){
+  if(!endData) return;
+  const Wp=680, Hp=380, cv2=document.createElement("canvas");
+  cv2.width=Wp; cv2.height=Hp;
+  const x=cv2.getContext("2d");
+  const FONT="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+  const g=x.createLinearGradient(0,0,Wp,Hp); g.addColorStop(0,"#16242f"); g.addColorStop(1,"#0a121b");
+  x.fillStyle=g; x.fillRect(0,0,Wp,Hp);
+  x.strokeStyle="#25394c"; x.lineWidth=2; x.strokeRect(1,1,Wp-2,Hp-2);
+  x.textBaseline="top";
+  x.fillStyle="#e88c4d"; x.font="700 16px "+FONT; x.fillText("O V E R S H O O T",36,32);
+  x.fillStyle=endData.hex; x.font="800 34px "+FONT; x.fillText(endData.outcome,36,56);
+  x.textAlign="right"; x.fillStyle="#5a6878"; x.font="700 11px "+FONT; x.fillText("GRADE",Wp-40,36);
+  x.fillStyle=endData.hex; x.font="800 76px "+FONT; x.fillText(endData.letter,Wp-36,46); x.textAlign="left";
+  const stats=[["GDP",`${Math.round(sim.gdp)}/${CFG.target}`],["PEAK WARMING",`+${sim.temp.toFixed(2)}°`],
+    ["TIPPING",`${endData.tips}/${TIPS.length}`],["FOSSIL LEFT",`${sim.plants.length}`],["FORESTS",`${sim.forests}`]];
+  const m=36, cw=(Wp-2*m-4*8)/5, cy=148, chh=64;
+  stats.forEach((s,i)=>{
+    const cx=m+i*(cw+8);
+    x.fillStyle="#0a131c"; x.fillRect(cx,cy,cw,chh);
+    x.strokeStyle="#1d2c3a"; x.lineWidth=1; x.strokeRect(cx,cy,cw,chh);
+    x.fillStyle="#5a6878"; x.font="600 9px "+FONT; x.textAlign="center"; x.fillText(s[0],cx+cw/2,cy+12);
+    x.fillStyle="#eaf0f6"; x.font="700 18px "+FONT; x.fillText(s[1],cx+cw/2,cy+32);
+  });
+  x.textAlign="left";
+  // result line, wrapped
+  x.fillStyle="#d6e0ea"; x.font="400 15px "+FONT;
+  const words=resultLine(endData.letter).split(" "); let line="", yy=246;
+  for(const w of words){
+    if(x.measureText(line+w+" ").width>Wp-2*m && line){ x.fillText(line,m,yy); line=w+" "; yy+=22; }
+    else line+=w+" ";
+  }
+  x.fillText(line,m,yy);
+  x.fillStyle="#e88c4d"; x.font="600 13px "+FONT; x.fillText("overshoot.greenplace.earth",m,Hp-34);
+  const a=document.createElement("a"); a.download="overshoot-result.png"; a.href=cv2.toDataURL("image/png"); a.click();
+}
+$("dlBadgeBtn").onclick=downloadBadge;
+
+/* ---------------- boot ---------------- */
+clock.setPaused(true);
+sim.log("Year 2025. Fossil power is cheap and popular; clean power is out of reach. Grow first — but every plant you raise today you will answer for.","hi");
+render();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
+<!--
+=====================================================================
+ DEPLOYING OVERSHOOT TO  overshoot.greenplace.earth
+=====================================================================
+This is a single static HTML file, so hosting is simple and free.
+
+BEST OPTION: Netlify (drag-and-drop, free, automatic HTTPS).
+GitHub Pages works too; Netlify is the least fiddly for one file.
+
+------------------------------------------------------------------
+1. RENAME THE FILE
+------------------------------------------------------------------
+A web host serves the file named index.html by default, so rename:
+   overshoot-web.html  ->  index.html
+Put that index.html alone in an otherwise-empty folder.
+
+------------------------------------------------------------------
+2A. DEPLOY ON NETLIFY (recommended)
+------------------------------------------------------------------
+ - Go to https://app.netlify.com  (free account).
+ - "Add new site" -> "Deploy manually".
+ - Drag the folder containing index.html onto the upload area.
+ - Netlify gives you a temporary URL like random-name.netlify.app — test it.
+ - Site settings -> Domain management -> "Add a custom domain":
+       overshoot.greenplace.earth
+   Netlify will show you the exact DNS target to point at (a CNAME).
+
+------------------------------------------------------------------
+2B. ALTERNATIVE: GITHUB PAGES
+------------------------------------------------------------------
+ - Create a repo, add index.html, enable Pages (Settings -> Pages,
+   deploy from main branch / root). You'll get user.github.io/repo.
+ - Add a file named  CNAME  containing:  overshoot.greenplace.earth
+ - Then add the DNS record below pointing to user.github.io.
+
+------------------------------------------------------------------
+3. DNS IN SQUARESPACE  (greenplace.earth is managed there)
+------------------------------------------------------------------
+ - Squarespace -> Settings -> Domains -> greenplace.earth -> DNS settings
+   (or "DNS / Custom records").
+ - Add ONE record:
+       TYPE:  CNAME
+       HOST / NAME:  overshoot          (just the subdomain label)
+       VALUE / DATA / POINTS TO:
+            Netlify:      <your-site>.netlify.app        (shown in Netlify)
+            GitHub Pages: <your-username>.github.io
+       TTL: default (e.g. 4 hrs / "automatic") is fine.
+ - Do NOT add http:// or a trailing slash to the CNAME value.
+ - A subdomain (overshoot.) takes a CNAME cleanly — no need for A records.
+
+------------------------------------------------------------------
+4. PROPAGATION & HTTPS
+------------------------------------------------------------------
+ - DNS propagation: usually 15–60 minutes, occasionally up to 24–48 hrs.
+   Check status at https://dnschecker.org (search overshoot.greenplace.earth).
+ - HTTPS: once DNS resolves, Netlify/GitHub auto-issue a free Let's Encrypt
+   certificate. In Netlify: Domain management -> HTTPS -> "Verify / Provision
+   certificate" if it doesn't appear within ~an hour.
+ - Verify: open  https://overshoot.greenplace.earth  — you should see a
+   padlock and the game. If the padlock warns, the cert is still provisioning;
+   wait and reload.
+
+TIP: because it's one self-contained file, you can also just email it or
+open it locally (double-click) — no server required for testing.
+=====================================================================
+-->
+
