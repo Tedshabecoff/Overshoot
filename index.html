@@ -305,7 +305,7 @@
       <button class="tool" data-m="forest" title="Cheap mitigation: absorbs emissions every decade. Needs open land — and won't outrun fossil alone.">Build Forest</button>
     </div>
   </div>
-  <div class="glass" id="hint">Pick a tool, click the land to build. Grow GDP to 300, hold warming under +2.0°, don't run out of support. Drag pans · wheel zooms.</div>
+  <div class="glass" id="hint">Pick a tool, click the land to build. Grow GDP to 280, hold warming under +2.0°, don't run out of support. Drag pans · wheel zooms.</div>
 </div>
 
 <!-- right dashboard -->
@@ -400,7 +400,7 @@
       </div>
       <div style="background:#1a2330;border:1px solid #2a3848;border-radius:8px;padding:10px 8px">
         <div style="color:#6fb7e8;font-weight:700;font-size:13px;margin-bottom:4px">⚡ CLEAN</div>
-        <div style="color:#c6d0da;font-size:12px">Better long-term, but starts at 28. Fund R&D to cut the price. Dispatches first — cuts emissions before you retire anything.</div>
+        <div style="color:#c6d0da;font-size:12px">Better long-term, but starts at 26. Fund R&D to cut the price. Dispatches first — cuts emissions before you retire anything.</div>
       </div>
       <div style="background:#1a2330;border:1px solid #2a3848;border-radius:8px;padding:10px 8px">
         <div style="color:var(--good);font-weight:700;font-size:13px;margin-bottom:4px">🌲 FOREST</div>
@@ -1217,7 +1217,7 @@ function updateHint(){
     case "zoneC":
       t="Cities grow your economy — and your energy demand. Build power to feed them."; break;
     default:
-      t="Zone energy land, then place plants on it. Drag pans · wheel zooms.";
+      t=`Grow GDP to ${CFG.target}, hold warming under +${CFG.tempLimit.toFixed(1)}°, keep support. Pick a tool, click the land. Drag pans · wheel zooms.`;
   }
   $("hint").textContent=t;
 }
@@ -1248,11 +1248,11 @@ function renderTips(){
 }
 const TIP_FX={
   permafrost:{title:"TIPPING POINT — PERMAFROST THAW",
-    sub:"Frozen ground is releasing ancient carbon: +4 emissions every decade, permanently, beyond any policy's reach."},
+    sub:`Frozen ground is releasing ancient carbon: +${CFG.permafrostLeak} emissions every decade, permanently, beyond any policy's reach.`},
   wais:{title:"TIPPING POINT — WEST ANTARCTIC ICE SHEET",
-    sub:"Ice loss is now self-sustaining: +0.04° per decade of momentum. The sea is claiming your unused coastal land."},
+    sub:`Ice loss is now self-sustaining: +${CFG.waisSurge.toFixed(2)}° per decade of momentum. The sea is claiming your unused coastal land.`},
   amoc:{title:"TIPPING POINT — ATLANTIC CIRCULATION FAILING",
-    sub:"Weather chaos drains 1.5 political support every decade. Governing itself just got harder."}};
+    sub:`Weather chaos drains ${CFG.amocPolDrain.toFixed(1)} political support every decade. Governing itself just got harder.`}};
 let bannerTimer=null;
 sim.onTipped.push(id=>{
   const fx=TIP_FX[id], b=$("tipBanner");
@@ -1402,19 +1402,19 @@ const CODEX=[
   g:"Three of the planet's systems in this game have hidden thresholds: permafrost (somewhere in 180–260 cumulative), the West Antarctic ice sheet (280–380), and the Atlantic circulation (360–460). The tracker shows the published range; nobody — including you — knows the exact line inside it. You learn where it was by crossing it, and crossing is permanent.",
   w:"Armstrong McKay et al. (Science, 2022) catalogued 16 climate tipping elements and concluded several enter their risk zones between 1.5° and 2°C. The defining features are exactly what you're experiencing: thresholds that are real but uncertain, changes that are self-sustaining once started, and no way back on human timescales. This is why 'keeping distance' beats 'optimizing to the edge'."},
  {t:"Permafrost carbon",hint:"unlocks if the permafrost thaws",test:()=>sim.tips.permafrost.hit,
-  g:"Crossed. Thawing ground now adds +4 emissions every decade on top of whatever you burn — and no policy of yours can retire it. Your forests can't keep up with it either: the budget arithmetic just got permanently worse, on its own.",
+  g:`Crossed. Thawing ground now adds +${CFG.permafrostLeak} emissions every decade on top of whatever you burn — and no policy of yours can retire it. Your forests can't keep up with it either: the budget arithmetic just got permanently worse, on its own.`,
   w:"Northern permafrost stores roughly twice as much carbon as the entire atmosphere (~1,400–1,600 Gt). As it thaws, microbes digest ancient organic matter and exhale it as CO₂ and methane. Estimates run to tens or hundreds of Gt this century. The crucial point: this is a FEEDBACK, not a source — there is no off switch, no owner, no one to negotiate with (Schuur et al. 2015; IPCC AR6)."},
  {t:"Ice sheets & sea level",hint:"unlocks if the ice sheet destabilizes",test:()=>sim.tips.wais.hit,
-  g:"Crossed. Warming now gains +0.04° per decade of momentum all by itself, and the sea has taken your unused coastal land — look at the map's edges. Nothing you do for the rest of this game reverses it.",
+  g:`Crossed. Warming now gains +${CFG.waisSurge.toFixed(2)}° per decade of momentum all by itself, and the sea has taken your unused coastal land — look at the map's edges. Nothing you do for the rest of this game reverses it.`,
   w:"The West Antarctic ice sheet rests on bedrock BELOW sea level, so warm ocean water undercuts it from beneath. Past a threshold, retreat becomes self-sustaining — 'marine ice sheet instability' — committing 3–5 metres of sea-level rise over coming centuries regardless of later emissions cuts. Paleoclimate evidence shows it has collapsed before in warmer epochs (Armstrong McKay et al. 2022; IPCC AR6)."},
  {t:"The Atlantic circulation",hint:"unlocks if the AMOC fails",test:()=>sim.tips.amoc.hit,
-  g:"Crossed. The ocean current that stabilized your weather is failing, and the chaos — floods, crop shocks, brutal winters beside heat waves — now drains 1.5 political support every decade. Notice what that means: the disaster attacks your CAPACITY TO GOVERN, not just your thermometer.",
+  g:`Crossed. The ocean current that stabilized your weather is failing, and the chaos — floods, crop shocks, brutal winters beside heat waves — now drains ${CFG.amocPolDrain.toFixed(1)} political support every decade. Notice what that means: the disaster attacks your CAPACITY TO GOVERN, not just your thermometer.`,
   w:"The Atlantic Meridional Overturning Circulation carries heat northward on a global conveyor; Greenland meltwater is freshening and weakening it. Collapse would shift tropical monsoons, chill northwest Europe while the planet warms, and disrupt agriculture on several continents at once. Recent studies (Ditlevsen & Ditlevsen 2023; van Westen et al. 2024) argue the risk this century is higher than once thought — and deeply uncertain."},
  {t:"Carbon lock-in",hint:"unlocks as your plants entrench",test:()=>didRetire||(sim.oldest()&&sim.oldest().age>=3),
-  g:"Retiring a fossil plant costs political capital that GROWS with its age — base × (1 + 0.5 × age). The plant you built cheap in 2025 is the one you can't afford to kill in 2085. The money↔support exchange rates rot for the same reason: the constituency defending fossil power grows with every decade you let it.",
+  g:`Retiring a fossil plant costs political capital that GROWS with its age — base × (1 + ${CFG.lockinK} × age). The plant you built cheap in 2025 is the one you can't afford to kill in 2085. The money↔support exchange rates rot for the same reason: the constituency defending fossil power grows with every decade you let it.`,
   w:"Infrastructure built today commits emissions for decades: a coal plant runs 40–60 years, and the jobs, towns, pension funds and balance sheets around it all defend it. Tong et al. (Nature, 2019) calculated that committed emissions from infrastructure ALREADY BUILT roughly exhaust the 1.5°C budget — before a single new plant."},
  {t:"Learning curves",hint:"unlocks with your first R&D investment",test:()=>sim.rnd>0,
-  g:"Each R&D investment permanently cuts clean-plant cost by 15%. It pays nothing this decade — it makes the LATE transition affordable. Skipping it early is the classic losing line in this game: by the time you're desperate for clean power, you can't afford it.",
+  g:`Each R&D investment permanently cuts clean-plant cost by ${Math.round((1-CFG.rndDiscount)*100)}%. It pays nothing this decade — it makes the LATE transition affordable. Skipping it early is the classic losing line in this game: by the time you're desperate for clean power, you can't afford it.`,
   w:"Wright's law: costs fall a roughly fixed percentage per doubling of cumulative production. Solar modules fell ~90% in the 2010s (~20% per doubling); wind and batteries followed similar curves (Way et al. 2022). Today's cheap clean energy was purchased by whoever deployed it while it was still expensive — mostly German and Chinese policy choices made decades ago."},
  {t:"Just transition",hint:"unlocks the first time you fund one",test:()=>didJt,
   g:"Money becomes support — you're compensating the people your transition displaces. Note the rate worsens as lock-in deepens: the longer you wait, the more forgiveness costs. Watch the lock-in penalty in the exchange dock climb.",
@@ -1473,7 +1473,7 @@ function makeAdvisorPrompts(){ return [
   {turn:0, delay:5000,
    text:`You start with ${Math.round(CFG.gdp0*CFG.capRate)} capital. Energy demand is ${Math.round(40+CFG.gdp0*0.4)} — your ${CFG.fossilPlants0} fossil plants (${CFG.fossilPlants0*CFG.plantSize} capacity) cover it. The budget bar bottom-left shows what you can spend this decade.`},
   {turn:0, delay:22000,
-   text:`Clean plants cost ${CFG.costCleanBase} — more than this decade's entire budget. Fund R&D (${CFG.costRnd}) once you can afford it; each level cuts the price by 15% permanently.`},
+   text:`Clean plants cost ${CFG.costCleanBase} — more than this decade's entire budget. Fund R&D (${CFG.costRnd}) once you can afford it; each level cuts the price by ${Math.round((1-CFG.rndDiscount)*100)}% permanently.`},
   {turn:1, delay:3000,
    text:`Each fossil plant is cheap to build but the retirement cost grows every decade it runs. The bind: the cheap energy that grows your economy now is the political fight you'll lose later.`},
 ];}
@@ -1893,3 +1893,6 @@ open it locally (double-click) — no server required for testing.
 =====================================================================
 -->
 
+
+
+  
