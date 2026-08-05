@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>OVERSHOOT — a climate strategy game</title>
 <meta name="description" content="A climate strategy game about growth, fossil lock-in, and the cost of waiting. Grow the economy without overheating the planet.">
 
@@ -30,10 +30,10 @@
     --money:#67d19e; --pol:#d1a84f; --sky-link:#6fb7e8;
   }
   *{box-sizing:border-box; margin:0; padding:0}
-  html,body{height:100%; overflow:hidden; background:var(--bg);
+  html,body{height:100%; overflow:hidden; overscroll-behavior:none; background:var(--bg);
     font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     color:var(--ink); -webkit-font-smoothing:antialiased}
-  canvas#world{position:fixed; inset:0; display:block; cursor:crosshair}
+  canvas#world{position:fixed; inset:0; display:block; cursor:crosshair; touch-action:none}
 
   /* cinematic finish */
   #vignette{position:fixed; inset:0; pointer-events:none; z-index:5;
@@ -235,7 +235,7 @@
     .meter .val{font-size:18px}
     .xbtn{padding:5px 9px; font-size:12px}
   }
-  @media(max-width:1200px){
+  @media(max-width:1200px) and (min-width:821px){
     #dash{width:360px}
     #exch{right:376px}
   }
@@ -251,6 +251,122 @@
 
   /* recommended action highlight */
   .act.recommend{border-color:#4d7396;box-shadow:0 0 0 1px #4d7396,0 0 12px rgba(77,115,150,.25)}
+
+  /* ==================================================================
+     MOBILE  (<=820px)
+     The desktop layout is a fixed right-hand rail; on a phone that rail
+     becomes a bottom sheet, the exchange dock moves inside it, and the
+     canvas gets the whole screen.
+     ================================================================== */
+  #sheetGrip{display:none}
+  @media (max-width:820px), (max-height:560px) and (max-width:1100px){
+    /* ---- top HUD: compact, wraps, never eats the board ---- */
+    #hud{top:6px; left:6px; right:6px; max-width:none; gap:5px}
+    #hud .glass{padding:7px 8px; border-radius:10px}
+    #hud button{padding:8px 10px; font-size:12.5px}
+    #hud .rowflex{gap:5px}
+    #progressWrap{min-width:60px}
+    #tools .rowflex{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch;
+      scrollbar-width:none; padding-bottom:2px}
+    #tools .rowflex::-webkit-scrollbar{display:none}
+    #tools .tool{flex:0 0 auto}
+    .toolsLabel{margin-bottom:5px; font-size:9px}
+    #hint{font-size:10.5px; line-height:1.35; max-height:3.4em; overflow:hidden; pointer-events:none}
+    .toolsLabel{pointer-events:none}
+
+    /* ---- dashboard becomes a draggable-feeling bottom sheet ---- */
+    #dash{
+      top:auto; left:0; right:0; bottom:0; width:100%; height:84vh;
+      border-left:none; border-top:1px solid var(--panel-line);
+      border-radius:16px 16px 0 0; z-index:14;
+      padding:0 12px 18px;
+      box-shadow:0 -12px 40px rgba(0,0,0,.55);
+      transition:transform .28s cubic-bezier(.3,.7,.3,1);
+      transform:translateY(0);
+    }
+    #dash.collapsed{ transform:translateY(calc(100% - 124px)); overflow:hidden }
+    #dash h1{display:none}
+    #yearLabel{margin:0 0 8px; font-size:11px}
+
+    /* grip: the always-visible strip you tap to open the sheet */
+    #sheetGrip{display:block; position:sticky; top:0; z-index:3; cursor:pointer;
+      background:linear-gradient(180deg,#0d131bfa,#0d131be8);
+      margin:0 -12px 4px; padding:7px 12px 6px}
+    #sheetGrip .gripBar{width:38px; height:4px; border-radius:2px; background:#2c3a4a; margin:0 auto 6px}
+    #sheetGrip .gripRow{display:flex; justify-content:space-between; align-items:center;
+      font-size:10px; letter-spacing:1.6px; text-transform:uppercase; color:#52606f; font-weight:700}
+    #gripChev{transition:transform .28s; font-size:11px}
+    #dash.collapsed #gripChev{transform:rotate(180deg)}
+
+    .stats{gap:5px; margin-bottom:8px}
+    .stat .val{font-size:16px}
+    .stat .cap{font-size:8px}
+    .card{padding:7px 9px; margin-bottom:7px}
+    #bandCanvas{height:100px}
+    #log{height:96px}
+    .act{padding:10px 9px; margin-bottom:5px}   /* comfortable tap targets */
+    #advanceBtn{padding:13px}
+    .bloc .nm{width:84px; font-size:11px}
+    .bloc .wd{width:60px}
+    .tiprow .nm{width:104px; font-size:11px}
+    .tiprow .wd{width:80px; font-size:10px}
+    .legend{gap:9px; font-size:9.5px}
+
+    /* ---- exchange dock: relocated INTO the sheet by JS, laid out as a grid ---- */
+    #exch{position:static; left:auto; right:auto; bottom:auto; z-index:auto;
+      display:grid; grid-template-columns:1fr 1fr; grid-template-areas:"m p" "x x";
+      gap:7px; padding:9px 10px; margin-bottom:8px}
+    #exch>.meter:first-of-type{grid-area:m}
+    #exch>#exchMid{grid-area:x}
+    #exch>.meter:last-of-type{grid-area:p}
+    .meter{min-width:0}
+    .meter .val{font-size:18px}
+    .xbtn{padding:10px 9px; font-size:12px}
+
+    /* ---- overlays: scrollable, phone-sized ---- */
+    .overlay{align-items:flex-start; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:10px 0}
+    .sheet{max-width:100%; width:100%; padding:22px 16px}
+    #intro .sheet{max-width:100%}
+    #intro .sheet>div[style*="1fr 1fr 1fr"]{grid-template-columns:1fr !important}
+    .sheet h1{font-size:32px; letter-spacing:4px}
+    .sheet p{font-size:14px}
+    #landing h1{font-size:38px; letter-spacing:6px}
+    #landing .tagline{font-size:14px; margin-bottom:26px}
+    #landing .lbtns{gap:10px}
+    #landing .lbtns button{padding:13px 26px; min-width:0; flex:1}
+    #about .asheet{max-width:100%; padding:26px 18px}
+
+    #end .sheet{padding:22px 14px !important}
+    #endStats{grid-template-columns:repeat(2,1fr) !important}
+    #resultBadge .rbStats{grid-template-columns:repeat(3,1fr)}
+    #resultBadge .rbGrade{font-size:38px}
+    #shareRow{flex-wrap:wrap}
+    #shareText{flex:1 0 100%; height:52px}
+    #shareRow button{flex:1}
+
+    #codex .frame{width:96vw; height:88vh; padding:18px 16px}
+    #codexBody{flex-direction:column; gap:12px}
+    #codexList{width:100%; max-height:118px; border-right:none;
+      border-bottom:1px solid var(--panel-line); padding-right:0; padding-bottom:8px}
+    #codexText h2{font-size:17px}
+    #codexText p{font-size:13.5px}
+
+    /* ---- floating bits ---- */
+    #tipBanner{max-width:92vw; padding:12px 16px; top:11%}
+    #tipBanner .tb-title{font-size:14px; letter-spacing:1.5px}
+    #tipBanner .tb-sub{font-size:11.5px}
+    #advisor{left:8px !important; right:8px !important; bottom:166px !important; max-width:none !important}
+    .toast{font-size:11px; padding:4px 8px}
+  }
+
+  /* landscape phones: vertical space is the scarce resource */
+  @media (max-width:1100px) and (max-height:560px){
+    #dash{height:92vh}
+    #dash.collapsed{transform:translateY(calc(100% - 116px))}
+    #hint{display:none}
+    #bandCanvas{height:80px}
+    #log{height:70px}
+  }
 </style>
 </head>
 <body>
@@ -310,6 +426,10 @@
 
 <!-- right dashboard -->
 <div id="dash">
+  <div id="sheetGrip" role="button" tabindex="0" aria-label="Expand or collapse dashboard">
+    <div class="gripBar"></div>
+    <div class="gripRow"><span id="gripLabel">Dashboard</span><span id="gripChev">▲</span></div>
+  </div>
   <h1>OVERSHOOT</h1>
   <div id="yearLabel">Year 2025</div>
   <div class="stats">
@@ -779,15 +899,27 @@ sim.onChanged.push(()=>world.sync());
 
 /* ---------------- renderer ---------------- */
 const cv=document.getElementById("world"), ctx=cv.getContext("2d");
-let W=0,H=0,DPR=1;
-function resize(){ DPR=window.devicePixelRatio||1; W=innerWidth; H=innerHeight;
-  cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+"px"; cv.style.height=H+"px"; }
-addEventListener("resize",resize); resize();
+let W=0,H=0,DPR=1,MOBILE=false,UIW=430;
+function resize(){
+  DPR=window.devicePixelRatio||1; W=innerWidth; H=innerHeight;
+  MOBILE = W<=820 || (H<=560 && W<=1100);
+  // the world is centred in the space the dashboard does NOT occupy; on mobile
+  // the dashboard is a bottom sheet, so the full width is available.
+  UIW=MOBILE?0:(W<=1200?376:430);
+  cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+"px"; cv.style.height=H+"px";
+}
+addEventListener("resize",resize);
+addEventListener("orientationchange",()=>setTimeout(resize,120));
+if(window.visualViewport) visualViewport.addEventListener("resize",resize);
+resize();
 
-const cam={x:0,y:HH*ROWS*0.55,zoom:.62};
+const cam=MOBILE
+  ? {x:-110,y:HH*ROWS*0.62,zoom:.42}   // closer in, centred on the inherited plants
+  : {x:0,y:HH*ROWS*0.55,zoom:.62};
+const MINZOOM=MOBILE?.20:.45;
 function cell(c,r){ return [(c-r)*HW, (c+r)*HH]; }
-function toScreen(x,y){ return [ (x-cam.x)*cam.zoom + (W-430)/2, (y-cam.y)*cam.zoom + H/2 ]; }
-function toWorld(sx,sy){ return [ (sx-(W-430)/2)/cam.zoom + cam.x, (sy-H/2)/cam.zoom + cam.y ]; }
+function toScreen(x,y){ return [ (x-cam.x)*cam.zoom + (W-UIW)/2, (y-cam.y)*cam.zoom + H/2 ]; }
+function toWorld(sx,sy){ return [ (sx-(W-UIW)/2)/cam.zoom + cam.x, (sy-H/2)/cam.zoom + cam.y ]; }
 function pickTile(sx,sy){
   const [wx,wy]=toWorld(sx,sy);
   const c=Math.round((wx/HW+wy/HH)/2), r=Math.round((wy/HH-wx/HW)/2);
@@ -834,7 +966,7 @@ function drawSky(t,now){
   const h=heat01();
   // day position: the sun crosses the sky once per decade
   const p=sim.over?0.5:clock.progress();
-  const sunX=W*0.12+p*(W-430-W*0.2), sunY=H*0.16+Math.sin(p*Math.PI)*-H*0.05+H*0.06;
+  const sunX=W*0.12+p*(W-UIW-W*0.2), sunY=H*0.16+Math.sin(p*Math.PI)*-H*0.05+H*0.06;
   let top=[lerp(13,46,h),lerp(22,28,h),lerp(38,30,h)];
   let hor=[lerp(38,120,h),lerp(60,62,h),lerp(86,44,h)];
   if(sim.tips.amoc.hit){ // a broken ocean current means a grey, violent sky
@@ -1032,7 +1164,7 @@ function tri(x,y,w){ ctx.beginPath(); ctx.moveTo(x,y-w*1.5); ctx.lineTo(x+w,y); 
 let hoverTile=-1;
 function drawWorldLayer(now){
   ctx.save();
-  ctx.translate((W-430)/2,H/2); ctx.scale(cam.zoom,cam.zoom); ctx.translate(-cam.x,-cam.y);
+  ctx.translate((W-UIW)/2,H/2); ctx.scale(cam.zoom,cam.zoom); ctx.translate(-cam.x,-cam.y);
   // the sea the island sits in — it matters more once the ice sheet goes
   const ocy=(ROWS-1)*HH;
   diamond(0,ocy,HW*(COLS+1.7),HH*(ROWS+1.7));
@@ -1217,7 +1349,9 @@ function updateHint(){
     case "zoneC":
       t="Cities grow your economy — and your energy demand. Build power to feed them."; break;
     default:
-      t=`Grow GDP to ${CFG.target}, hold warming under +${CFG.tempLimit.toFixed(1)}°, keep support. Pick a tool, click the land. Drag pans · wheel zooms.`;
+      t=MOBILE
+        ?`Grow GDP to ${CFG.target}, stay under +${CFG.tempLimit.toFixed(1)}°, keep support. Tap land to build · drag pans · pinch zooms.`
+        :`Grow GDP to ${CFG.target}, hold warming under +${CFG.tempLimit.toFixed(1)}°, keep support. Pick a tool, click the land. Drag pans · wheel zooms.`;
   }
   $("hint").textContent=t;
 }
@@ -1645,9 +1779,59 @@ addEventListener("mouseup",e=>{
 });
 cv.addEventListener("wheel",e=>{
   e.preventDefault();
-  cam.zoom=Math.max(.45,Math.min(2.4,cam.zoom*(e.deltaY<0?1.1:1/1.1)));
+  cam.zoom=Math.max(MINZOOM,Math.min(2.4,cam.zoom*(e.deltaY<0?1.1:1/1.1)));
 },{passive:false});
 cv.addEventListener("contextmenu",e=>e.preventDefault());
+
+/* ---------------- touch input: pan, pinch-zoom, tap-to-place ----------------
+   One finger drags the map and a short tap places. Two fingers pinch, anchored
+   on the midpoint so the land stays under your fingers. preventDefault also
+   suppresses the synthetic mouse events, so the desktop handlers never double-fire. */
+let tMode=null, tMoved=0, tLX=0, tLY=0, pinchD0=0, pinchZ0=1;
+function touchDist(t){ const dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY;
+  return Math.hypot(dx,dy)||1; }
+function touchMid(t){ return [(t[0].clientX+t[1].clientX)/2,(t[0].clientY+t[1].clientY)/2]; }
+
+cv.addEventListener("touchstart",e=>{
+  if(e.touches.length===1){
+    const t=e.touches[0];
+    tMode="pan"; tMoved=0; tLX=t.clientX; tLY=t.clientY;
+    hoverTile=pickTile(t.clientX,t.clientY);     // tap target feedback, since there's no hover
+  }else if(e.touches.length===2){
+    tMode="pinch"; tMoved=999;                   // a pinch is never a tap
+    pinchD0=touchDist(e.touches); pinchZ0=cam.zoom;
+    hoverTile=-1;
+  }
+  e.preventDefault();
+},{passive:false});
+
+cv.addEventListener("touchmove",e=>{
+  if(tMode==="pan"&&e.touches.length===1){
+    const t=e.touches[0], dx=t.clientX-tLX, dy=t.clientY-tLY;
+    tMoved+=Math.abs(dx)+Math.abs(dy);
+    cam.x-=dx/cam.zoom; cam.y-=dy/cam.zoom;
+    tLX=t.clientX; tLY=t.clientY;
+    hoverTile=pickTile(t.clientX,t.clientY);
+  }else if(tMode==="pinch"&&e.touches.length===2){
+    const [mx,my]=touchMid(e.touches);
+    const [wx0,wy0]=toWorld(mx,my);              // world point under the fingers, before
+    cam.zoom=Math.max(MINZOOM,Math.min(2.4,pinchZ0*(touchDist(e.touches)/pinchD0)));
+    const [wx1,wy1]=toWorld(mx,my);              // ...and after — pin it in place
+    cam.x+=wx0-wx1; cam.y+=wy0-wy1;
+  }
+  e.preventDefault();
+},{passive:false});
+
+cv.addEventListener("touchend",e=>{
+  if(tMode==="pan"&&tMoved<12&&e.changedTouches.length){
+    const t=e.changedTouches[0];
+    world.apply(pickTile(t.clientX,t.clientY));
+  }
+  if(e.touches.length===0){ tMode=null; hoverTile=-1; }
+  e.preventDefault();
+},{passive:false});
+
+cv.addEventListener("touchcancel",()=>{ tMode=null; hoverTile=-1; });
 
 /* ============================================================
    SOUND — Web Audio API only, no files, no external libs.
@@ -1818,6 +2002,52 @@ function downloadBadge(){
 }
 $("dlBadgeBtn").onclick=downloadBadge;
 
+/* ---------------- mobile shell ----------------
+   Relocates the exchange dock into the bottom sheet, shortens button labels
+   for narrow screens, and wires the collapse/expand grip. Desktop is untouched. */
+function initMobileShell(){
+  if(!MOBILE) return;
+  const dash=$("dash"), exch=$("exch");
+
+  // the exchange dock is fixed-position furniture on desktop; on a phone it
+  // belongs inside the sheet, directly under the headline stats.
+  const stats=dash.querySelector(".stats");
+  if(exch&&stats&&exch.parentNode!==dash) stats.insertAdjacentElement("afterend",exch);
+
+  // shorter labels so the tool rail and HUD fit without wrapping awkwardly
+  const short={zoneE:"⚡ Zone",zoneC:"🏙 City",fossil:"🏭 Fossil",clean:"☀ Clean",forest:"🌲 Forest"};
+  document.querySelectorAll(".tool").forEach(b=>{ if(short[b.dataset.m]) b.textContent=short[b.dataset.m]; });
+  $("autoBtn").textContent="Auto ✕";
+  const tl=document.querySelector(".toolsLabel");
+  if(tl) tl.textContent="Tools — tap the land to build";
+
+  // sheet starts collapsed so the board is the first thing you see
+  dash.classList.add("collapsed");
+  const setGrip=()=>{
+    const open=!dash.classList.contains("collapsed");
+    $("gripLabel").textContent=open?"Dashboard":"Dashboard · tap to open";
+    if(!open) dash.scrollTop=0;
+  };
+  const toggle=()=>{ dash.classList.toggle("collapsed"); setGrip(); };
+  $("sheetGrip").addEventListener("click",toggle);
+  $("sheetGrip").addEventListener("keydown",e=>{
+    if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(); }
+  });
+  setGrip();
+
+  // opening the sheet mid-decade shouldn't cost you the decade you were planning
+  $("advanceBtn").addEventListener("click",()=>{ dash.classList.add("collapsed"); setGrip(); });
+}
+initMobileShell();
+
+/* keep autoBtn's label consistent with the mobile shortening */
+(function(){
+  const _auto=$("autoBtn");
+  _auto.addEventListener("click",()=>{
+    if(MOBILE) _auto.textContent="Auto "+(clock.autoPause?"✓":"✕");
+  });
+})();
+
 /* ---------------- boot ---------------- */
 clock.setPaused(true);
 sim.log("Year 2025. Fossil power is cheap and popular; clean power is out of reach. Grow first — but every plant you raise today you will answer for.","hi");
@@ -1893,6 +2123,3 @@ open it locally (double-click) — no server required for testing.
 =====================================================================
 -->
 
-
-
-  
